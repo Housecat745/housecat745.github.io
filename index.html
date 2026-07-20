@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Flammpunkt">
-<title>Flammpunkt – Brandschutz-Begehung</title>
+<title>Fisc – Bericht über Brandschutzeinrichtungen</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -547,7 +547,7 @@ function renderLogin(){
 function renderStart(){
   var k = state.kopfdaten;
   return ''+
-  '<div class="appbar"><div class="appbar-title">🔥 Flammpunkt Begehung</div><div style="display:flex;gap:8px"><button class="appbar-btn" onclick="AppActions.goEinstellungen()" title="Einstellungen">⚙️</button><button class="appbar-btn" onclick="AppActions.logout()" title="Abmelden">⏻</button></div></div>'+
+  '<div class="appbar"><div class="appbar-title">🔥 Fisc</div><div style="display:flex;gap:8px"><button class="appbar-btn" onclick="AppActions.goEinstellungen()" title="Einstellungen">⚙️</button><button class="appbar-btn" onclick="AppActions.logout()" title="Abmelden">⏻</button></div></div>'+
   '<div class="content">'+
     '<h2>Objektdaten</h2>'+
     '<p class="hint">Einmal pro Begehung ausfüllen.</p>'+
@@ -781,7 +781,7 @@ function renderAbschluss(){
     '<div class="export-row">'+
       '<button class="btn-export btn-export-zip" onclick="AppActions.erstelleExport()">🗂 ZIP (PDF + Fotos) erstellen &amp; senden</button>'+
     '</div>'+
-    '<p class="hint">Öffnet danach das Teilen-Menü - dort Outlook auswählen, um den Bericht an service@flammpunkt.eu zu senden. Die Adresse wird automatisch in die Zwischenablage kopiert.</p>'+
+    '<p class="hint">Öffnet danach das Teilen-Menü'+((state.firmenprofil && state.firmenprofil.email) ? (' - dort Outlook auswählen, um den Bericht an '+escapeHtml(state.firmenprofil.email)+' zu senden. Die Adresse wird automatisch in die Zwischenablage kopiert.') : '.')+'</p>'+
     '<div class="export-status" id="exportStatus"></div>'+
   '</div>';
 }
@@ -889,7 +889,7 @@ function buildPdfDoc(){
   neueSeite();
   doc.setFontSize(20);
   doc.setTextColor(31,56,100);
-  doc.text('Brandschutz-Begehung', PDF_MARGIN, 90);
+  doc.text('Bericht über Brandschutzeinrichtungen', PDF_MARGIN, 90);
   doc.setFontSize(12);
   doc.setTextColor(40,40,40);
   var y = 130;
@@ -941,6 +941,43 @@ function buildPdfDoc(){
   var abschlussLines = doc.splitTextToSize(abschlussText, pageW - 2*PDF_MARGIN);
   doc.text(abschlussLines, PDF_MARGIN, y);
   y += abschlussLines.length * 14 + 20;
+
+  // Kompakte Objektübersicht: alle geprüften Einheiten mit Kurzstatus (bewusst klein/unauffällig gehalten)
+  var alleEinheitenFlat = [];
+  THEMA_ORDER.forEach(function(key){
+    var def = LEITFADEN[key];
+    var ts = getThemaState(key);
+    ts.einheiten.forEach(function(e){
+      alleEinheitenFlat.push({ label: def.einheitLabel, nummer: e.nummer, standort: e.standort, mangel: einheitHatMangel(e, def) });
+    });
+  });
+  if(alleEinheitenFlat.length > 0){
+    doc.setFontSize(9);
+    doc.setTextColor(120,120,120);
+    doc.setFont(undefined,'bold');
+    doc.text('Geprüfte Objekte im Überblick', PDF_MARGIN, y);
+    y += 13;
+    doc.setFontSize(8);
+    doc.setFont(undefined,'normal');
+    alleEinheitenFlat.forEach(function(item){
+      if(y > pageH - PDF_FOOTER_RESERVE - 10){ doc.addPage(); y = PDF_MARGIN + 10; }
+      var links = item.label + ' ' + item.nummer + ' – ' + item.standort;
+      if(item.mangel){
+        doc.setTextColor(180,60,50);
+        doc.setFont(undefined,'bold');
+        doc.text(links, PDF_MARGIN, y);
+        doc.text('Defekt', pageW - PDF_MARGIN, y, { align:'right' });
+        doc.setFont(undefined,'normal');
+      } else {
+        doc.setTextColor(130,130,130);
+        doc.text(links, PDF_MARGIN, y);
+        doc.text('i.O.', pageW - PDF_MARGIN, y, { align:'right' });
+      }
+      y += 11;
+    });
+    doc.setTextColor(40,40,40);
+    y += 16;
+  }
 
   // Je Thema ein eigener Bericht - NUR fuer Einheiten mit mindestens einem Mangel.
   // I.o.-Einheiten werden nicht einzeln aufgefuehrt (stehen nur in der Gesamtuebersicht oben).
@@ -1295,15 +1332,17 @@ window.AppActions = {
     }, 30);
   },
   _teileOderLade: function(blob, filename, mimeType){
-    try {
-      navigator.clipboard.writeText('service@flammpunkt.eu').catch(function(){});
-    } catch(e){}
+    var eigeneMail = (state.firmenprofil && state.firmenprofil.email) ? state.firmenprofil.email : '';
+    var mailHinweis = eigeneMail ? (' an ' + eigeneMail + ' senden (Outlook wählen).') : '';
+    if(eigeneMail){
+      try { navigator.clipboard.writeText(eigeneMail).catch(function(){}); } catch(e){}
+    }
     var file;
     try { file = new File([blob], filename, { type: mimeType }); } catch(e){ file = null; }
     if(file && navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({ files: [file], title: 'Flammpunkt Begehung', text: 'Begehungsbericht – an service@flammpunkt.eu senden (Outlook wählen).' })
+      navigator.share({ files: [file], title: 'Bericht über Brandschutzeinrichtungen', text: 'Bericht' + mailHinweis })
         .then(function(){
-          setExportStatus('Geteilt. E-Mail-Adresse ist in der Zwischenablage: service@flammpunkt.eu');
+          setExportStatus('Geteilt.' + (eigeneMail ? ' E-Mail-Adresse ist in der Zwischenablage: ' + eigeneMail : ''));
           AppActions._abschlussAbfrage();
         })
         .catch(function(err){
@@ -1319,7 +1358,7 @@ window.AppActions = {
         });
     } else {
       downloadBlob(blob, filename);
-      setExportStatus('Datei heruntergeladen. E-Mail-Adresse in Zwischenablage: service@flammpunkt.eu');
+      setExportStatus('Datei heruntergeladen.' + (eigeneMail ? (' E-Mail-Adresse in Zwischenablage: ' + eigeneMail) : ''));
       AppActions._abschlussAbfrage();
     }
   },
