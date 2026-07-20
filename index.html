@@ -216,6 +216,7 @@ var THEMA_META = {
     titel: 'PRÜFPROTOKOLL – TRAGBARE FEUERLÖSCHER',
     rechtsgrundlage: 'gemäß ASR A2.2 (Technische Regeln für Arbeitsstätten) und DIN 14406-4 (Tragbare Feuerlöscher – Instandhaltung)',
     normKurz: 'ASR A2.2 / DIN 14406-4',
+    pruefintervallJahre: 2,
     hinweise: [
       'ASR A2.2 (Mindestanzahl Feuerlöscher, max. Prüfintervall 2 Jahre, Zugänglichkeit, Kennzeichnung)',
       'DIN 14406-4: Prüfumfang umfasst Sichtprüfung, Dichtheit, Betriebsbereitschaft, Kennzeichnung, Plomben/Sicherungsstreifen, Füllmenge, Druckanzeige',
@@ -228,6 +229,7 @@ var THEMA_META = {
     titel: 'PRÜFPROTOKOLL – BRANDSCHUTZTÜREN',
     rechtsgrundlage: 'gemäß DIN 31051 (Grundlagen der Instandhaltung) und DIN 14677 (Instandhaltung von Feststellanlagen und Türschließern an Brandschutz- und Rauchschutzabschlüssen)',
     normKurz: 'DIN 31051 / DIN 14677',
+    pruefintervallJahre: 1,
     hinweise: [
       'DIN 31051: Grundlagen der Instandhaltung (Inspektion, Wartung, Instandsetzung, Verbesserung) – Basis für wiederkehrende Prüfungen',
       'DIN 14677: Jährliche Prüfung und Wartung von Feststellanlagen (elektr. Türschließern) und Rauchschutzabschlüssen durch Sachkundigen',
@@ -241,6 +243,7 @@ var THEMA_META = {
     titel: 'WARTUNGSBERICHT – WANDHYDRANTEN',
     rechtsgrundlage: 'Wiederkehrende Prüfung, Wartung und Instandhaltung von Wandhydranten Typ F und Typ S gemäß DIN 14462 und DIN EN 671-3',
     normKurz: 'DIN 14462 / DIN EN 671-3',
+    pruefintervallJahre: 1,
     hinweise: [
       'DIN 14462: Prüfintervall in der Regel jährlich durch eine sachkundige Person',
       'Prüfumfang: Schlauch, Absperrventil, Strahlrohr, Haspel/Tragegestell, Schlauchlänge, Zugänglichkeit, Anschlüsse, Kennzeichnung',
@@ -252,6 +255,7 @@ var THEMA_META = {
     titel: 'PRÜFPROTOKOLL – RWA-ANLAGEN (RAUCH- UND WÄRMEABZUG)',
     rechtsgrundlage: 'Wiederkehrende Funktionsprüfung von Rauch- und Wärmeabzugsanlagen gemäß Herstellerangaben und betrieblicher Brandschutzordnung',
     normKurz: 'Herstellerangaben und betrieblicher Brandschutzordnung',
+    pruefintervallJahre: 1,
     hinweise: [
       'Funktionsprüfung mindestens jährlich durch eine sachkundige Person empfohlen',
       'Auslöseeinrichtungen (Handauslösetaster, BMA-Ansteuerung), Antriebe, Endschalter und Notstromversorgung sind besonders zu prüfen',
@@ -864,10 +868,10 @@ function sammleMaengelFuerEinheit(einheit, def){
 var PDF_MARGIN = 42;
 var PDF_FOOTER_RESERVE = 85;
 var MONATSNAMEN = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-function folgepruefungText(datumStr){
+function folgepruefungText(datumStr, intervallJahre){
   if(!datumStr) return '–';
   var teile = datumStr.split('-');
-  var jahr = parseInt(teile[0],10) + 1;
+  var jahr = parseInt(teile[0],10) + (intervallJahre || 1);
   var monatIdx = parseInt(teile[1],10) - 1;
   if(isNaN(jahr) || isNaN(monatIdx) || monatIdx<0 || monatIdx>11) return '–';
   return MONATSNAMEN[monatIdx] + ' ' + jahr;
@@ -925,13 +929,16 @@ function buildPdfDoc(){
   });
   y += 14;
 
-  var relevanteNormen = THEMA_ORDER
-    .filter(function(key){ return getThemaState(key).einheiten.length>0; })
-    .map(function(key){ return THEMA_META[key].normKurz; });
+  var relevanteThemen = THEMA_ORDER.filter(function(key){ return getThemaState(key).einheiten.length>0; });
+  var relevanteNormen = relevanteThemen.map(function(key){ return THEMA_META[key].normKurz; });
   var normenText = relevanteNormen.join('; ');
+  var kuerzestesIntervall = relevanteThemen.reduce(function(min, key){
+    var iv = THEMA_META[key].pruefintervallJahre || 1;
+    return (min===null || iv<min) ? iv : min;
+  }, null);
   var abschlussText;
   if(gesamtMangel === 0){
-    abschlussText = 'Ihr Objekt ist mangelfrei. Die Überprüfung wurde gemäß ' + normenText + ' durchgeführt. Folgeprüfung empfohlen: ' + folgepruefungText(k.datum) + '.';
+    abschlussText = 'Ihr Objekt ist mangelfrei. Die Überprüfung wurde gemäß ' + normenText + ' durchgeführt. Folgeprüfung empfohlen: ' + folgepruefungText(k.datum, kuerzestesIntervall) + '.';
   } else {
     abschlussText = 'Die Brandschutzüberprüfung nach ' + normenText + ' Ihres Objektes ist leider mangelhaft ausgefallen. Die folgenden Mängel gilt es abzustellen, um das Erlöschen Ihres Versicherungsschutzes zu verhindern:';
   }
