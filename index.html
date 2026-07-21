@@ -13,7 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root{
-  --c-primary:#1F3864;
+  --c-primary:#A6192E;
   --c-bg:#f3f4f6;
   --c-surface:#ffffff;
   --c-text:#1c1c1e;
@@ -59,6 +59,7 @@ h2{margin:4px 0 10px;font-size:20px;color:var(--c-primary);}
 .btn-jn{flex:1;padding:14px;border-radius:10px;border:2px solid #d4d7dd;background:#fff;font-size:16px;font-weight:700;color:var(--c-muted);cursor:pointer;}
 .btn-jn.active-ja{background:var(--c-success);border-color:var(--c-success);color:#fff;}
 .btn-jn.active-nein{background:var(--c-danger);border-color:var(--c-danger);color:#fff;}
+.btn-jn.active-nerf{background:#8a8f98;border-color:#8a8f98;color:#fff;}
 .zeile-eingabe{display:flex;gap:10px;margin-top:6px;}
 .zeile-eingabe>div{flex:1;}
 .foto-zeile{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
@@ -111,6 +112,7 @@ var LEITFADEN = {
     label: 'Feuerlöscher',
     einheitLabel: 'Feuerlöscher',
     einheitLabelPlural: 'Feuerlöscher',
+    hatStammdaten: true,
     subthemen: [
       { id:'aussen', label:'Außenprüfung', pflicht:true, fragen:[
         {id:'f1', text:'Schlauch geprüft?', hinweis:'Dreh- und Knickprobe, auf Verstopfungen prüfen', typ:'A'},
@@ -135,15 +137,23 @@ var LEITFADEN = {
     label: 'Brandschutztüren',
     einheitLabel: 'Tür',
     einheitLabelPlural: 'Türen',
+    hatStammdaten: true,
     subthemen: [
-      { id:'sicht', label:'Sichtprüfung & Funktion', fragen:[
-        {id:'f1', text:'Türblatt unbeschädigt?', hinweis:'keine Risse, Verformungen, Durchbohrungen', typ:'A'},
-        {id:'f2', text:'Dichtungen (Brand-/Rauchschutz) vollständig und intakt?', typ:'A'},
-        {id:'f3', text:'Tür schließt selbstständig und vollständig (Türschließer)?', typ:'A'},
-        {id:'f4', text:'Schließfolgeregelung funktioniert?', hinweis:'nur bei zweiflügeligen Türen relevant', typ:'C'},
-        {id:'f5', text:'Feststellanlage löst bei Rauch/Stromausfall korrekt aus?', hinweis:'falls vorhanden', typ:'D'},
-        {id:'f6', text:'Freigängigkeit gegeben?', hinweis:'keine Verkeilung, keine Gegenstände im Schwenkbereich', typ:'D'},
-        {id:'f7', text:'Kennzeichnung/Prüfplakette vorhanden?', typ:'B'}
+      { id:'technisch', label:'Technische Eigenschaften', pflicht:true, fragen:[
+        {id:'f1', text:'Ist eine Vorrichtung zum selbsttätigen Schließen (OTS, BTS, Federband) der Tür vorhanden und vollständig funktionsfähig?', typ:'A', nErf:true},
+        {id:'f2', text:'Schließt die Tür leichtgängig?', typ:'A', nErf:true},
+        {id:'f3', text:'Greift die Schloßfalle ordnungsgemäß ins Schließblech?', typ:'A', nErf:true},
+        {id:'f4', text:'Sind die Türbeschläge vollständig, funktionsfähig und in korrekter Ausführung?', typ:'A', nErf:true},
+        {id:'f5', text:'Ist ein zulässiger Zylinder vorhanden?', typ:'A', nErf:true},
+        {id:'f6', text:'Ist eine Schließfolgeregelung von Gang- und Standflügel vorhanden und vollständig funktionsfähig?', hinweis:'nur bei zweiflügeligen Türen relevant', typ:'A', nErf:true},
+        {id:'f7', text:'Ist eine umlaufende Türdichtung vorhanden und ohne Beschädigungen?', typ:'A', nErf:true},
+        {id:'f8', text:'Ist der Bodenspalt innerhalb der üblichen Toleranzen?', typ:'A', nErf:true},
+        {id:'f9', text:'Ist eine absenkbare Bodendichtung vorhanden und vollständig funktionsfähig?', typ:'A', nErf:true},
+        {id:'f10', text:'Ist die Türanlage im Originalzustand und unbeschädigt?', typ:'A', nErf:true}
+      ]},
+      { id:'sonstiges', label:'Sonstiges', pflicht:true, fragen:[
+        {id:'f1', text:'Ist ein Hinweisschild Brandschutztür / Feuerschutzabschluss angebracht?', typ:'B'},
+        {id:'f2', text:'Wurden Herstellerunterlagen der Tür durch den Betreiber zur Verfügung gestellt?', typ:'A'}
       ]}
     ],
     neuCheck: { id:'neu', label:'Neuanlage – Kurzprüfung', fragen:[
@@ -154,6 +164,7 @@ var LEITFADEN = {
     label: 'Wandhydranten',
     einheitLabel: 'Wandhydrant',
     einheitLabelPlural: 'Wandhydranten',
+    hatStammdaten: true,
     subthemen: [
       { id:'wartung', label:'Jährliche Wartung nach DIN 14462', pflicht:true, fragen:[
         {id:'f1', text:'Schlauch unbeschädigt?', hinweis:'keine Risse, Knicke, Durchscheuerungen', typ:'A'},
@@ -178,16 +189,23 @@ var LEITFADEN = {
     einheitLabel: 'RWA-Anlage',
     einheitLabelPlural: 'RWA-Anlagen',
     subthemen: [
-      { id:'funktion', label:'Funktionsprüfung', fragen:[
-        {id:'f1', text:'LED-Anzeige an RWA-Taster und Zentrale funktioniert/leuchtet?', typ:'B'},
-        {id:'f2', text:'Auslösung über Handauslösetaster funktioniert?', typ:'A'},
-        {id:'f3', text:'Auslösung über Rauchmelder/BMA-Ansteuerung funktioniert?', hinweis:'falls vorhanden', typ:'A'},
-        {id:'f4', text:'Antrieb läuft ruckelfrei, ohne ungewöhnliche Geräusche?', typ:'A'},
-        {id:'f5', text:'Endschalter (Auf/Zu) funktionieren korrekt?', typ:'A'},
-        {id:'f6', text:'Notstromversorgung/Akku-Spannung', hinweis:'Soll-Wert laut Herstellerangabe/Typenschild, Ist-Wert gemessen – in Volt', typ:'E', einheit:'V'},
-        {id:'f7', text:'Dichtungen an Klappe/Lichtkuppel intakt?', typ:'A'},
-        {id:'f8', text:'Freigängigkeit gegeben?', hinweis:'keine Verklemmung, keine Hindernisse', typ:'A'},
-        {id:'f9', text:'Kennzeichnung Handauslösetaster vorhanden und lesbar?', typ:'B'}
+      { id:'wartung', label:'Jährliche Wartung', pflicht:true, fragen:[
+        {id:'f1', text:'Überprüfung von Aufschaltungen auf andere Alarmsysteme (z. B. Brandmeldeanlagen)', hinweis:'falls vorhanden', typ:'A', nErf:true},
+        {id:'f2', text:'Sichtkontrolle der Anlage auf bauliche Veränderungen / Vollständigkeitsprüfung', typ:'A', nErf:true},
+        {id:'f3', text:'Sichtkontrolle auf Beschädigungen', typ:'A', nErf:true},
+        {id:'f4', text:'Sichtkontrolle der Kabelanschlüsse', typ:'A', nErf:true},
+        {id:'f5', text:'Überprüfung der beweglichen Teile', typ:'A', nErf:true},
+        {id:'f6', text:'Überprüfung der Windleitwände', hinweis:'falls vorhanden', typ:'A', nErf:true},
+        {id:'f7', text:'Überprüfung der Verriegelung', typ:'A', nErf:true},
+        {id:'f8', text:'Prüfung der Akkumulatoren (Ladespannung)', hinweis:'Soll-Wert laut Herstellerangabe/Typenschild, Ist-Wert gemessen – in Volt; bei mangelnder Belastbarkeit Austausch erforderlich', typ:'E', einheit:'V'},
+        {id:'f9', text:'Funktionsprüfung der Rauchmelder mit Prüfgas', hinweis:'falls vorhanden', typ:'A', nErf:true},
+        {id:'f10', text:'Funktionsprüfung der Wärmemelder mit einer geeigneten Wärmequelle', hinweis:'falls vorhanden', typ:'A', nErf:true},
+        {id:'f11', text:'Funktionsprüfung aller Funktionen, Anzeigen und Signale', typ:'A', nErf:true},
+        {id:'f12', text:'Simulation des Notbetriebes', typ:'A', nErf:true},
+        {id:'f13', text:'Ersatz von verbrauchten Materialien durch Originalteile des Herstellers', hinweis:'falls erforderlich', typ:'A', nErf:true},
+        {id:'f14', text:'Reinigung der Anlage', typ:'A', nErf:true},
+        {id:'f15', text:'Dokumentation der Arbeiten in einem Betriebsbuch', typ:'A'},
+        {id:'f16', text:'Kennzeichnung Handauslösetaster vorhanden und lesbar?', typ:'B'}
       ]}
     ],
     neuCheck: { id:'neu', label:'Neuanlage – Kurzprüfung', fragen:[
@@ -253,7 +271,7 @@ var STORAGE_KEY = 'fp_begehung_v1';
 var state = loadState() || createEmptyState();
 function createEmptyState(){
   return {
-    kopfdaten: { kunde:'', adresse:'', datum: new Date().toISOString().slice(0,10), objektNr:'', pruefer:'' },
+    kopfdaten: { kunde:'', adresse:'', datum: new Date().toISOString().slice(0,10), objektNr:'', pruefer:'Felix Beckmann' },
     themen: {},
     screen: 'start',
     nav: {},
@@ -304,6 +322,7 @@ function brauchtBemerkungPflicht(frage, antwort){
   return !!(antwort && antwort.wert === 'nein');
 }
 function brauchtFotoPflicht(frage, antwort){
+  if(antwort && antwort.wert === 'nerf') return false;
   if(frage.typ === 'B') return true;
   if(frage.typ === 'D') return !!(antwort && antwort.wert === 'nein');
   return false;
@@ -564,6 +583,7 @@ function renderFrageCard(def, sub, frage){
     inputHtml = '<div class="jn-buttons">'+
       '<button class="btn-jn '+(antwort.wert==='ja'?'active-ja':'')+'" onclick="AppActions.setWertFuer(\''+sub.id+'\',\''+frage.id+'\',\'wert\',\'ja\')">Ja</button>'+
       '<button class="btn-jn '+(antwort.wert==='nein'?'active-nein':'')+'" onclick="AppActions.setWertFuer(\''+sub.id+'\',\''+frage.id+'\',\'wert\',\'nein\')">Nein</button>'+
+      (frage.nErf ? '<button class="btn-jn '+(antwort.wert==='nerf'?'active-nerf':'')+'" onclick="AppActions.setWertFuer(\''+sub.id+'\',\''+frage.id+'\',\'wert\',\'nerf\')">n.Erf.</button>' : '')+
     '</div>';
   }
   var showFields = frage.typ === 'E' ? (antwort.soll!=null && antwort.soll!=='') : !!antwort.wert;
@@ -592,6 +612,74 @@ function currentEinheit(){
   for(var i=0;i<ts.einheiten.length;i++){ if(ts.einheiten[i].id === state.nav.einheitId) return ts.einheiten[i]; }
   return null;
 }
+var TUEREN_STAMMDATEN_FELDER = [
+  {key:'hersteller', label:'Hersteller', typ:'text'},
+  {key:'produktname', label:'Produktname', typ:'text'},
+  {key:'baujahr', label:'Baujahr', typ:'text'},
+  {key:'zulassungsNr', label:'Zulassungs-Nr.', typ:'text'},
+  {key:'typ', label:'Typ', typ:'text', placeholder:'z.B. Flügeltür'},
+  {key:'dinRichtung', label:'DIN-Richtung', typ:'select', optionen:['','links','rechts']},
+  {key:'zarge', label:'Zarge', typ:'text', placeholder:'z.B. Fassungszarge'},
+  {key:'werkstoff', label:'Werkstoff', typ:'text', placeholder:'z.B. Stahl'},
+  {key:'schliesser', label:'Schließer', typ:'text', placeholder:'z.B. Federband'},
+  {key:'brandschutztuer', label:'Brandschutztür', typ:'select', optionen:['','Ja','Nein']},
+  {key:'rauchschutztuer', label:'Rauchschutztür', typ:'select', optionen:['','Ja','Nein']},
+  {key:'dichtschliessend', label:'Dichtschließend', typ:'select', optionen:['','Ja','Nein']},
+  {key:'feststellanlage', label:'Feststellanlage vorh.', typ:'select', optionen:['','Ja','Nein']},
+  {key:'obertuerschliesser', label:'Obertürschließer vorh.', typ:'select', optionen:['','Ja','Nein']},
+  {key:'obertuerschliesserBez', label:'Obertürschließer Bezeichnung', typ:'text', placeholder:'z.B. Geze TS-4000'},
+  {key:'verglasung', label:'Verglasung', typ:'select', optionen:['','Ja','Nein']},
+  {key:'schloss', label:'Schloss vorh.', typ:'select', optionen:['','Ja','Nein']},
+  {key:'schlossTyp', label:'Schloss-Typ', typ:'text', placeholder:'z.B. Standard'},
+  {key:'bodenbelag', label:'Bodenbelag', typ:'text', placeholder:'z.B. Fliesen'},
+  {key:'einbauart', label:'Tür eingebaut in', typ:'text', placeholder:'z.B. Beton/Mauerwerk'}
+];
+var FEUERLOESCHER_STAMMDATEN_FELDER = [
+  {key:'hersteller', label:'Hersteller', typ:'text', placeholder:'z.B. Minimax'},
+  {key:'typ', label:'Typ/Modell', typ:'text', placeholder:'z.B. WX6NG fluorfrei'},
+  {key:'baujahr', label:'Baujahr', typ:'text'},
+  {key:'seriennummer', label:'Serien-/Chip-Nr.', typ:'text'},
+  {key:'loeschmittelart', label:'Löschmittelart', typ:'select', optionen:['','Pulver ABC','Pulver BC','CO2','Wasser','Schaum','Fettbrand (F)']},
+  {key:'fuellmenge', label:'Füllmenge', typ:'text', placeholder:'z.B. 6 kg / 6 l'},
+  {key:'wandhalter', label:'Wandhalter vorhanden', typ:'select', optionen:['','Ja','Nein']}
+];
+var WANDHYDRANT_STAMMDATEN_FELDER = [
+  {key:'typ', label:'Typ', typ:'select', optionen:['','Typ F (formstabil)','Typ S (Schlauch flach)']},
+  {key:'schlauchgroesse', label:'Schlauchlänge/Größe', typ:'text', placeholder:'z.B. 30m DN25'},
+  {key:'ruhedruck', label:'Ruhedruck (bar)', typ:'text'},
+  {key:'fliessdruck', label:'Fließdruck (bar)', typ:'text'},
+  {key:'wassermenge', label:'Wassermengenmessung (l/min)', typ:'text'},
+  {key:'entnahmestelle', label:'Entnahmestelle', typ:'select', optionen:['','Günstige Entnahmestelle','Ungünstige Entnahmestelle']},
+  {key:'naechsteFuenfJahresPruefung', label:'Nächste 5-Jahresprüfung', typ:'text', placeholder:'Jahr'}
+];
+LEITFADEN.brandschutztueren.stammdatenFelder = TUEREN_STAMMDATEN_FELDER;
+LEITFADEN.feuerloescher.stammdatenFelder = FEUERLOESCHER_STAMMDATEN_FELDER;
+LEITFADEN.wandhydranten.stammdatenFelder = WANDHYDRANT_STAMMDATEN_FELDER;
+function renderStammdaten(einheit, def){
+  var sd = einheit.stammdaten || {};
+  var felder = def.stammdatenFelder || [];
+  var felderHtml = felder.map(function(f){
+    var val = sd[f.key] || '';
+    var inputHtml;
+    if(f.typ === 'select'){
+      inputHtml = '<select onchange="AppActions.setStammdatenFeld(\''+f.key+'\', this.value)">'+
+        f.optionen.map(function(o){ return '<option value="'+escapeHtml(o)+'"'+(o===val?' selected':'')+'>'+(o===''?'–':escapeHtml(o))+'</option>'; }).join('')+
+      '</select>';
+    } else {
+      inputHtml = '<input type="text" value="'+escapeHtml(val)+'" placeholder="'+(f.placeholder||'')+'" oninput="AppActions.setStammdatenFeld(\''+f.key+'\', this.value)">';
+    }
+    return '<label>'+escapeHtml(f.label)+'</label>'+inputHtml;
+  }).join('');
+  return '<div class="subthema-heading">Stammdaten</div>'+
+    '<div class="frage-card">'+
+      felderHtml+
+      '<label>Foto (Übersicht)</label>'+
+      '<div class="foto-zeile">'+
+        (einheit.stammdatenFoto ? '<img src="'+einheit.stammdatenFoto+'" class="foto-thumb">' : '')+
+        '<button class="btn-secondary" onclick="AppActions.nimmStammdatenFoto()">📷 '+(einheit.stammdatenFoto?'Neu aufnehmen':'Foto aufnehmen')+'</button>'+
+      '</div>'+
+    '</div>';
+}
 function renderWizard(){
   var themaKey = state.nav.themaKey;
   var def = LEITFADEN[themaKey];
@@ -609,10 +697,12 @@ function renderWizard(){
     }).join('');
     return '<div class="subthema-heading">'+escapeHtml(sub.label)+'</div>' + fragenHtml;
   }).join('');
+  var stammdatenHtml = (def.hatStammdaten && !einheit.istNeu) ? renderStammdaten(einheit, def) : '';
   return ''+
   '<div class="appbar"><button class="appbar-btn" onclick="AppActions.goEinheitenVonWizard()">← Liste</button><div class="appbar-title">'+escapeHtml(def.einheitLabel)+' '+escapeHtml(einheit.nummer)+(einheit.istNeu?' (Neuanlage)':'')+'</div><button class="appbar-btn" onclick="AppActions.bearbeiteEinheit()" title="Nummer/Standort bearbeiten">✏️</button></div>'+
   '<div class="content">'+
     '<p class="fortschritt-gesamt">'+(gesamtAnzahl-offenAnzahl)+' von '+gesamtAnzahl+' Fragen beantwortet'+(offenAnzahl>0?' – '+offenAnzahl+' offen':'')+'</p>'+
+    stammdatenHtml+
     body+
   '</div>'+
   '<div class="actionbar"><button class="btn btn-primary" onclick="AppActions.fertigEinheit()">Fertig – zur Liste</button></div>';
@@ -663,7 +753,7 @@ function renderAbschluss(){
     '<div class="export-row">'+
       '<button class="btn-export btn-export-zip" onclick="AppActions.erstelleExport()">🗂 ZIP (PDF + Fotos) erstellen &amp; senden</button>'+
     '</div>'+
-    '<p class="hint">Öffnet danach das Teilen-Menü - dort Outlook auswählen, um den Bericht an '+escapeHtml(FLAMMPUNKT_EMAIL)+' zu senden. Die Adresse wird automatisch in die Zwischenablage kopiert.</p>'+
+    '<p class="hint">Öffnet danach das Teilen-Menü - dort Outlook auswählen, um den Bericht an '+escapeHtml(FLAMMPUNKT_EXPORT_EMAIL)+' zu senden. Die Adresse wird automatisch in die Zwischenablage kopiert.</p>'+
     '<div class="export-status" id="exportStatus"></div>'+
   '</div>';
 }
@@ -754,6 +844,185 @@ function folgepruefungText(datumStr, intervallJahre){
   if(isNaN(jahr) || isNaN(monatIdx) || monatIdx<0 || monatIdx>11) return '–';
   return MONATSNAMEN[monatIdx] + ' ' + jahr;
 }
+function renderPruefberichtSeite(doc, def, meta, einheit, pageW, pageH){
+  var cy = PDF_MARGIN + 10;
+  doc.setFontSize(14);
+  doc.setTextColor(166,25,46);
+  doc.setFont(undefined,'bold');
+  doc.text('Prüfbericht – ' + def.einheitLabel + ' ' + einheit.nummer, PDF_MARGIN, cy);
+  doc.setFontSize(9);
+  doc.setTextColor(120,120,120);
+  doc.setFont(undefined,'normal');
+  doc.text(einheit.standort || '', pageW - PDF_MARGIN, cy, { align:'right' });
+  cy += 20;
+
+  if(def.hatStammdaten){
+    var sd = einheit.stammdaten || {};
+    var fotoW = 130, fotoH = 100;
+    var startCy = cy;
+    doc.setFontSize(9);
+    doc.setTextColor(40,40,40);
+    (def.stammdatenFelder || []).forEach(function(f){
+      var val = sd[f.key];
+      if(!val) return;
+      doc.setFont(undefined,'bold'); doc.text(f.label+':', PDF_MARGIN, cy);
+      doc.setFont(undefined,'normal'); doc.text(String(val), PDF_MARGIN+140, cy);
+      cy += 12;
+    });
+    if(einheit.stammdatenFoto){
+      try { doc.addImage(einheit.stammdatenFoto, 'JPEG', pageW - PDF_MARGIN - fotoW, startCy, fotoW, fotoH); } catch(e){}
+    }
+    cy = Math.max(cy, startCy + fotoH) + 12;
+    doc.setDrawColor(220,220,220);
+    doc.line(PDF_MARGIN, cy, pageW-PDF_MARGIN, cy);
+    cy += 14;
+  }
+
+  var aktiveIds = aktiveSubthemenIds(einheit, def);
+  var hatMangelInhaltlich = einheitHatMangelInhaltlich(einheit, def);
+  aktiveSubthemenFuer(einheit, def).forEach(function(sub){
+    var rows = [];
+    var rowFotos = [];
+    sichtbareFragen(sub, aktiveIds, hatMangelInhaltlich).forEach(function(frage){
+      var antwort = einheit.antworten[antwortKey(sub.id, frage.id)];
+      var mangelFlag = isMangel(frage, antwort);
+      var bemerkungText = (antwort && antwort.bemerkung) ? antwort.bemerkung : '';
+      if(frage.typ === 'E' && antwort && antwort.soll!=null && antwort.soll!=='' && antwort.ist!=null && antwort.ist!==''){
+        var einheitLabelTxt = frage.einheit || 'm';
+        var sollIstText = 'Soll ' + antwort.soll + ' ' + einheitLabelTxt + ' / Ist ' + antwort.ist + ' ' + einheitLabelTxt;
+        bemerkungText = bemerkungText ? (sollIstText + ' – ' + bemerkungText) : bemerkungText;
+        bemerkungText = sollIstText + (bemerkungText && bemerkungText!==sollIstText ? ' – ' + (antwort.bemerkung||'') : '');
+      }
+      var statusText = mangelFlag ? 'DEFEKT' : (antwort && antwort.wert==='nerf' ? 'n.Erf.' : ((antwort && (antwort.wert || antwort.ist!=null)) ? 'OK' : ''));
+      rows.push([frage.text, bemerkungText, statusText]);
+      rowFotos.push((antwort && antwort.foto) ? antwort.foto : null);
+    });
+    if(rows.length===0) return;
+    if(cy > pageH - 160){ doc.addPage(); cy = PDF_MARGIN; }
+    doc.setFontSize(11);
+    doc.setTextColor(166,25,46);
+    doc.setFont(undefined,'bold');
+    doc.text(sub.label, PDF_MARGIN, cy);
+    cy += 12;
+    var fotoSpaltenX = PDF_MARGIN + 195 + 135 + 39 + 12;
+    var fotoBreite = 110, fotoHoehe = 78;
+    doc.autoTable({
+      startY: cy,
+      margin: { left: PDF_MARGIN, right: PDF_MARGIN, bottom: PDF_FOOTER_RESERVE },
+      tableWidth: 195 + 135 + 39,
+      head: [['Prüfpunkt','Bemerkung','Status']],
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 4, valign: 'top' },
+      headStyles: { fillColor: [166,25,46], textColor: 255, fontSize: 8 },
+      columnStyles: { 0:{cellWidth:195}, 1:{cellWidth:135}, 2:{cellWidth:39} },
+      didParseCell: function(data){
+        if(data.section==='body' && rowFotos[data.row.index]){
+          data.cell.styles.minCellHeight = fotoHoehe + 8;
+        }
+        if(data.section==='body' && data.column.index===2 && data.cell.raw==='DEFEKT'){
+          data.cell.styles.textColor = [192,57,43];
+          data.cell.styles.fontStyle = 'bold';
+        }
+        if(data.section==='body' && data.column.index===2 && data.cell.raw==='n.Erf.'){
+          data.cell.styles.textColor = [150,150,150];
+        }
+      },
+      didDrawCell: function(data){
+        if(data.section==='body' && data.column.index===2){
+          var foto = rowFotos[data.row.index];
+          if(foto){
+            try { doc.addImage(foto, 'JPEG', fotoSpaltenX, data.cell.y, fotoBreite, fotoHoehe); } catch(e){}
+          }
+        }
+      }
+    });
+    cy = doc.lastAutoTable.finalY + 14;
+  });
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(90,90,90);
+  doc.setFont(undefined,'normal');
+  if(cy > pageH - PDF_FOOTER_RESERVE - 20) { doc.addPage(); cy = PDF_MARGIN; }
+  doc.text('Sachkundiger: ' + (state.kopfdaten.pruefer||'–') + '     Datum: ' + (state.kopfdaten.datum||'–'), PDF_MARGIN, pageH - PDF_FOOTER_RESERVE - 8);
+}
+
+function renderMangelSeite(doc, m, nummer, gesamt, pageW, pageH){
+  var cy = PDF_MARGIN + 10;
+  doc.setFontSize(12);
+  doc.setTextColor(40,40,40);
+  doc.setFont(undefined,'bold');
+  doc.text('Mängelbericht ' + nummer + ' / ' + gesamt, PDF_MARGIN, cy);
+  cy += 24;
+  doc.setFontSize(13);
+  doc.setTextColor(192,57,43);
+  var titelLines = doc.splitTextToSize('Mangel: ' + m.frage.text, pageW - 2*PDF_MARGIN);
+  doc.text(titelLines, PDF_MARGIN, cy);
+  cy += titelLines.length * 16 + 12;
+
+  doc.setFontSize(10);
+  doc.setTextColor(40,40,40);
+  doc.setFont(undefined,'bold');
+  doc.text('Bauteil:', PDF_MARGIN, cy);
+  doc.setFont(undefined,'normal');
+  doc.text(m.def.einheitLabel + ' \\ ' + m.def.label, PDF_MARGIN+90, cy);
+  doc.setFont(undefined,'bold');
+  doc.text('Inventar-Nr.:', pageW - PDF_MARGIN - 150, cy);
+  doc.setFontSize(15);
+  doc.text('*' + m.einheit.nummer + '*', pageW - PDF_MARGIN - 150, cy+20);
+  doc.setFontSize(10);
+  cy += 16;
+  doc.setFont(undefined,'bold'); doc.text('Standort:', PDF_MARGIN, cy);
+  doc.setFont(undefined,'normal'); doc.text(m.einheit.standort||'–', PDF_MARGIN+90, cy);
+  cy += 24;
+
+  if(m.antwort && m.antwort.foto){
+    try { doc.addImage(m.antwort.foto, 'JPEG', pageW - PDF_MARGIN - 160, cy, 160, 120); } catch(e){}
+  }
+  var textBreite = pageW - 2*PDF_MARGIN - (m.antwort && m.antwort.foto ? 175 : 0);
+  doc.setFont(undefined,'bold'); doc.text('Beschreibung:', PDF_MARGIN, cy);
+  cy += 14;
+  doc.setFont(undefined,'normal');
+  var beschreibungText = (m.antwort && m.antwort.bemerkung) ? m.antwort.bemerkung : '(keine weitere Beschreibung angegeben)';
+  var beschreibungLines = doc.splitTextToSize(beschreibungText, textBreite);
+  doc.text(beschreibungLines, PDF_MARGIN, cy);
+  cy += beschreibungLines.length * 13 + 16;
+
+  doc.setFont(undefined,'bold'); doc.text('Richtlinie:', PDF_MARGIN, cy);
+  doc.setFont(undefined,'normal');
+  var richtlinieLines = doc.splitTextToSize(m.meta.rechtsgrundlage, textBreite - 60);
+  doc.text(richtlinieLines, PDF_MARGIN+55, cy);
+  cy += richtlinieLines.length * 12 + 20;
+
+  cy = Math.max(cy, 240);
+  doc.setFillColor(192,57,43);
+  doc.rect(PDF_MARGIN, cy, pageW-2*PDF_MARGIN, 20, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont(undefined,'bold');
+  doc.setFontSize(10);
+  doc.text('Mangelbeseitigung erforderlich', pageW/2, cy+14, { align:'center' });
+  cy += 36;
+
+  doc.setTextColor(40,40,40);
+  doc.setFontSize(10);
+  doc.text('Empfohlene Maßnahmen:', PDF_MARGIN, cy);
+  cy += 14;
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(9);
+  var massnahmenLines = doc.splitTextToSize('Bitte durch Fachbetrieb prüfen und beheben lassen.', pageW-2*PDF_MARGIN);
+  doc.text(massnahmenLines, PDF_MARGIN, cy);
+  cy += massnahmenLines.length * 12 + 30;
+
+  doc.setDrawColor(200,200,200);
+  doc.setFontSize(9);
+  doc.setTextColor(90,90,90);
+  var y2 = pageH - PDF_FOOTER_RESERVE - 60;
+  doc.line(PDF_MARGIN, y2, pageW-PDF_MARGIN, y2);
+  doc.text('erledigt Datum:', PDF_MARGIN, y2+16);
+  doc.text('Bearbeiter:', PDF_MARGIN+150, y2+16);
+  doc.text('Kommentar:', PDF_MARGIN+300, y2+16);
+  doc.line(PDF_MARGIN, y2+40, pageW-PDF_MARGIN, y2+40);
+}
+
 function buildPdfDoc(){
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({ unit:'pt', format:'a4' });
@@ -767,11 +1036,86 @@ function buildPdfDoc(){
     firstPage = false;
   }
 
-  // Deckblatt
+  // ---------- DECKBLATT ----------
   neueSeite();
-  doc.setFontSize(20);
-  doc.setTextColor(31,56,100);
-  doc.text('Bericht über Brandschutzeinrichtungen', PDF_MARGIN, 90);
+  try {
+    var logoProps = doc.getImageProperties(FLAMMPUNKT_LOGO_BASE64);
+    var logoMaxW = 170, logoMaxH = 62;
+    var logoScale = Math.min(logoMaxW/logoProps.width, logoMaxH/logoProps.height);
+    var lw = logoProps.width*logoScale, lh = logoProps.height*logoScale;
+    doc.addImage(FLAMMPUNKT_LOGO_BASE64, 'PNG', (pageW-lw)/2, 130, lw, lh);
+  } catch(e){}
+  doc.setFontSize(13);
+  doc.setTextColor(60,60,60);
+  doc.setFont(undefined,'bold');
+  doc.text(FLAMMPUNKT_FIRMA, pageW/2, 215, { align:'center' });
+  doc.setFontSize(26);
+  doc.setTextColor(166,25,46);
+  doc.text('Brandschutz Prüfbericht', pageW/2, 280, { align:'center' });
+  doc.setFontSize(11);
+  doc.setTextColor(90,90,90);
+  doc.setFont(undefined,'normal');
+  doc.text(k.kunde||'', pageW/2, 320, { align:'center' });
+  doc.text(k.adresse||'', pageW/2, 336, { align:'center' });
+  doc.text('Datum: ' + (k.datum||'–'), pageW/2, 356, { align:'center' });
+
+  var deckblattThemen = THEMA_ORDER.filter(function(key){ return getThemaState(key).einheiten.length>0; });
+  if(deckblattThemen.length>0){
+    var einleitungY = 390;
+    doc.setFontSize(9.5);
+    doc.setTextColor(70,70,70);
+    doc.setFont(undefined,'normal');
+    deckblattThemen.forEach(function(key){
+      var def = LEITFADEN[key];
+      var meta = THEMA_META[key];
+      var zeileText = 'Überprüfung der ' + def.einheitLabelPlural + ' gemäß ' + meta.normKurz + '.';
+      var zeilenLines = doc.splitTextToSize(zeileText, pageW - 2*PDF_MARGIN - 80);
+      doc.text(zeilenLines, pageW/2, einleitungY, { align:'center' });
+      einleitungY += zeilenLines.length * 13 + 6;
+    });
+  }
+
+  // ---------- PRÜFBERICHTE: eine Seite pro Einheit, unabhaengig vom Status ----------
+  THEMA_ORDER.forEach(function(themaKey){
+    var def = LEITFADEN[themaKey];
+    var meta = THEMA_META[themaKey];
+    var ts = getThemaState(themaKey);
+    ts.einheiten.forEach(function(einheit){
+      neueSeite();
+      renderPruefberichtSeite(doc, def, meta, einheit, pageW, pageH);
+    });
+  });
+
+  // ---------- MÄNGELBERICHT: eine Seite pro einzelnem Mangel ----------
+  var alleMaengel = [];
+  THEMA_ORDER.forEach(function(themaKey){
+    var def = LEITFADEN[themaKey];
+    var meta = THEMA_META[themaKey];
+    var ts = getThemaState(themaKey);
+    ts.einheiten.forEach(function(einheit){
+      var aktiveIds = aktiveSubthemenIds(einheit, def);
+      var hatMangelInhaltlich = einheitHatMangelInhaltlich(einheit, def);
+      aktiveSubthemenFuer(einheit, def).forEach(function(sub){
+        sichtbareFragen(sub, aktiveIds, hatMangelInhaltlich).forEach(function(frage){
+          var antwort = einheit.antworten[antwortKey(sub.id, frage.id)];
+          if(isMangel(frage, antwort)){
+            alleMaengel.push({ def:def, meta:meta, einheit:einheit, frage:frage, antwort:antwort });
+          }
+        });
+      });
+    });
+  });
+  alleMaengel.forEach(function(m, idx){
+    neueSeite();
+    renderMangelSeite(doc, m, idx+1, alleMaengel.length, pageW, pageH);
+  });
+
+  // ---------- ZUSAMMENFASSUNG + UNTERSCHRIFTEN ----------
+  neueSeite();
+  doc.setFontSize(18);
+  doc.setTextColor(166,25,46);
+  doc.setFont(undefined,'bold');
+  doc.text('Zusammenfassung', PDF_MARGIN, 90);
   doc.setFontSize(12);
   doc.setTextColor(40,40,40);
   var y = 130;
@@ -818,7 +1162,7 @@ function buildPdfDoc(){
   if(gesamtMangel === 0){
     abschlussText = 'Ihr Objekt ist mangelfrei. Die Überprüfung wurde gemäß ' + normenText + ' durchgeführt. Folgeprüfung empfohlen: ' + folgepruefungText(k.datum, kuerzestesIntervall) + '.';
   } else {
-    abschlussText = 'Die Brandschutzüberprüfung nach ' + normenText + ' Ihres Objektes ist leider mangelhaft ausgefallen. Die folgenden Mängel gilt es abzustellen, um das Erlöschen Ihres Versicherungsschutzes zu verhindern:';
+    abschlussText = 'Die Brandschutzüberprüfung nach ' + normenText + ' Ihres Objektes ist leider mangelhaft ausgefallen. Die im Mängelbericht aufgeführten Punkte gilt es abzustellen, um das Erlöschen Ihres Versicherungsschutzes zu verhindern.';
   }
   doc.setFontSize(10);
   doc.setTextColor(40,40,40);
@@ -827,7 +1171,6 @@ function buildPdfDoc(){
   doc.text(abschlussLines, PDF_MARGIN, y);
   y += abschlussLines.length * 14 + 20;
 
-  // Kompakte Objektübersicht: alle geprüften Einheiten mit Kurzstatus (bewusst klein/unauffällig gehalten)
   var alleEinheitenFlat = [];
   THEMA_ORDER.forEach(function(key){
     var def = LEITFADEN[key];
@@ -864,113 +1207,12 @@ function buildPdfDoc(){
     y += 16;
   }
 
-  // Je Thema ein eigener Bericht - NUR fuer Einheiten mit mindestens einem Mangel.
-  // I.o.-Einheiten werden nicht einzeln aufgefuehrt (stehen nur in der Gesamtuebersicht oben).
-  THEMA_ORDER.forEach(function(themaKey){
-    var def = LEITFADEN[themaKey];
-    var meta = THEMA_META[themaKey];
-    var ts = getThemaState(themaKey);
-    var defekteEinheiten = ts.einheiten.filter(function(e){ return einheitHatMangel(e, def); });
-    if(defekteEinheiten.length===0) return;
-    neueSeite();
-    var cy = PDF_MARGIN + 10;
-    doc.setFontSize(15);
-    doc.setTextColor(31,56,100);
-    doc.setFont(undefined,'bold');
-    doc.text(meta.titel, PDF_MARGIN, cy);
-    cy += 18;
-    doc.setFontSize(9);
-    doc.setTextColor(90,90,90);
-    doc.setFont(undefined,'normal');
-    var rechtsLines = doc.splitTextToSize(meta.rechtsgrundlage, pageW - 2*PDF_MARGIN);
-    doc.text(rechtsLines, PDF_MARGIN, cy);
-    cy += rechtsLines.length * 11 + 6;
-    doc.setFontSize(8);
-    doc.setTextColor(120,120,120);
-    meta.hinweise.forEach(function(h){
-      var lines = doc.splitTextToSize('– ' + h, pageW - 2*PDF_MARGIN);
-      doc.text(lines, PDF_MARGIN, cy);
-      cy += lines.length * 10 + 2;
-    });
-    cy += 8;
-    doc.setDrawColor(200,200,200);
-    doc.line(PDF_MARGIN, cy, pageW-PDF_MARGIN, cy);
-    cy += 16;
-
-    defekteEinheiten.forEach(function(einheit){
-      var rows = [];
-      var rowFotos = [];
-      var aktiveIds = aktiveSubthemenIds(einheit, def);
-      var hatMangelInhaltlich = einheitHatMangelInhaltlich(einheit, def);
-      aktiveSubthemenFuer(einheit, def).forEach(function(sub){
-        sichtbareFragen(sub, aktiveIds, hatMangelInhaltlich).forEach(function(frage){
-          var antwort = einheit.antworten[antwortKey(sub.id, frage.id)];
-          var mangelFlag = isMangel(frage, antwort);
-          var bemerkungText = (antwort && antwort.bemerkung) ? antwort.bemerkung : '';
-          if(frage.typ === 'E' && antwort && antwort.soll!=null && antwort.soll!=='' && antwort.ist!=null && antwort.ist!==''){
-            var einheitLabel = frage.einheit || 'm';
-            var sollIstText = 'Soll ' + antwort.soll + ' ' + einheitLabel + ' / Ist ' + antwort.ist + ' ' + einheitLabel;
-            bemerkungText = bemerkungText ? (sollIstText + ' – ' + bemerkungText) : sollIstText;
-          }
-          var statusText = mangelFlag ? 'DEFEKT' : ((antwort && (antwort.wert || antwort.ist!=null)) ? 'OK' : '');
-          rows.push([frage.text, bemerkungText, statusText]);
-          rowFotos.push((antwort && antwort.foto) ? antwort.foto : null);
-        });
-      });
-      if(cy > pageH - 160){ doc.addPage(); cy = PDF_MARGIN; }
-      doc.setFontSize(12);
-      doc.setTextColor(31,56,100);
-      doc.setFont(undefined,'bold');
-      doc.text(def.einheitLabel + ' ' + einheit.nummer + ' – ' + (einheit.standort||''), PDF_MARGIN, cy);
-      cy += 14;
-      var fotoSpaltenX = PDF_MARGIN + 195 + 135 + 39 + 12;
-      var fotoBreite = 110, fotoHoehe = 78;
-      doc.autoTable({
-        startY: cy,
-        margin: { left: PDF_MARGIN, right: PDF_MARGIN, bottom: PDF_FOOTER_RESERVE },
-        tableWidth: 195 + 135 + 39,
-        head: [['Prüfpunkt','Bemerkung','Status']],
-        body: rows,
-        styles: { fontSize: 8, cellPadding: 4, valign: 'top' },
-        headStyles: { fillColor: [31,56,100], textColor: 255, fontSize: 8 },
-        columnStyles: { 0:{cellWidth:195}, 1:{cellWidth:135}, 2:{cellWidth:39} },
-        didParseCell: function(data){
-          if(data.section==='body' && rowFotos[data.row.index]){
-            data.cell.styles.minCellHeight = fotoHoehe + 8;
-          }
-          if(data.section==='body' && data.column.index===2 && data.cell.raw==='DEFEKT'){
-            data.cell.styles.textColor = [192,57,43];
-            data.cell.styles.fontStyle = 'bold';
-          }
-        },
-        didDrawCell: function(data){
-          if(data.section==='body' && data.column.index===2){
-            var foto = rowFotos[data.row.index];
-            if(foto){
-              try { doc.addImage(foto, 'JPEG', fotoSpaltenX, data.cell.y, fotoBreite, fotoHoehe); } catch(e){}
-            }
-          }
-        }
-      });
-      cy = doc.lastAutoTable.finalY + 10;
-      cy += 6;
-    });
-  });
-
-  // Unterschriftenseite - bei mangelfreiem Bericht auf der gleichen Seite wie das Deckblatt
-  // fortgesetzt (spart Papier), bei Mängeln bekommt sie eine eigene neue Seite.
-  var sigTitelY;
-  if(gesamtMangel > 0){
-    neueSeite();
-    sigTitelY = PDF_MARGIN + 10;
-  } else {
-    sigTitelY = y + 10;
-  }
+  if(y > pageH - 200){ doc.addPage(); y = PDF_MARGIN + 10; }
   doc.setFontSize(14);
-  doc.setTextColor(31,56,100);
+  doc.setTextColor(166,25,46);
   doc.setFont(undefined,'bold');
-  doc.text('Unterschriften', PDF_MARGIN, sigTitelY);
-  var sy = sigTitelY + 40;
+  doc.text('Unterschriften', PDF_MARGIN, y+10);
+  var sy = y + 50;
   var u = state.unterschriften;
   doc.setFontSize(10);
   doc.setTextColor(40,40,40);
@@ -1004,6 +1246,7 @@ var FLAMMPUNKT_FIRMA = 'Flammpunkt Brandschutz';
 var FLAMMPUNKT_ADRESSE = 'Prümzurlayer Straße 16, 54666 Irrel';
 var FLAMMPUNKT_TELEFON = '+49 (0) 65 25 – 93 25-11';
 var FLAMMPUNKT_EMAIL = 'info@flammpunkt.eu';
+var FLAMMPUNKT_EXPORT_EMAIL = 'service@flammpunkt.eu';
 function drawFlammpunktFooter(doc, pageNum, totalPages, pageW, pageH){
   var footerY = pageH - 50;
   doc.setDrawColor(210,210,210);
@@ -1158,6 +1401,16 @@ window.AppActions = {
     fotoZiel = { subId: subId, frageId: frageId };
     document.getElementById('cameraInput').click();
   },
+  setStammdatenFeld: function(feld, wert){
+    var einheit = currentEinheit();
+    if(!einheit.stammdaten) einheit.stammdaten = {};
+    einheit.stammdaten[feld] = wert;
+    saveState();
+  },
+  nimmStammdatenFoto: function(){
+    fotoZiel = { subId: '__stammdaten__', frageId: 'foto' };
+    document.getElementById('cameraInput').click();
+  },
   fertigEinheit: function(){
     var def = LEITFADEN[state.nav.themaKey];
     var einheit = currentEinheit();
@@ -1203,13 +1456,13 @@ window.AppActions = {
     }, 30);
   },
   _teileOderLade: function(blob, filename, mimeType){
-    try { navigator.clipboard.writeText(FLAMMPUNKT_EMAIL).catch(function(){}); } catch(e){}
+    try { navigator.clipboard.writeText(FLAMMPUNKT_EXPORT_EMAIL).catch(function(){}); } catch(e){}
     var file;
     try { file = new File([blob], filename, { type: mimeType }); } catch(e){ file = null; }
     if(file && navigator.canShare && navigator.canShare({ files: [file] })){
-      navigator.share({ files: [file], title: 'Bericht über Brandschutzeinrichtungen', text: 'Bericht an ' + FLAMMPUNKT_EMAIL + ' senden (Outlook wählen).' })
+      navigator.share({ files: [file], title: 'Bericht über Brandschutzeinrichtungen', text: 'Bericht an ' + FLAMMPUNKT_EXPORT_EMAIL + ' senden (Outlook wählen).' })
         .then(function(){
-          setExportStatus('Geteilt. E-Mail-Adresse ist in der Zwischenablage: ' + FLAMMPUNKT_EMAIL);
+          setExportStatus('Geteilt. E-Mail-Adresse ist in der Zwischenablage: ' + FLAMMPUNKT_EXPORT_EMAIL);
           AppActions._abschlussAbfrage();
         })
         .catch(function(err){
@@ -1225,7 +1478,7 @@ window.AppActions = {
         });
     } else {
       downloadBlob(blob, filename);
-      setExportStatus('Datei heruntergeladen. E-Mail-Adresse in Zwischenablage: ' + FLAMMPUNKT_EMAIL);
+      setExportStatus('Datei heruntergeladen. E-Mail-Adresse in Zwischenablage: ' + FLAMMPUNKT_EXPORT_EMAIL);
       AppActions._abschlussAbfrage();
     }
   },
@@ -1250,8 +1503,12 @@ document.getElementById('cameraInput').addEventListener('change', function(e){
   if(!file || !fotoZiel) return;
   var ziel = fotoZiel;
   resizeImage(file, 1000, 0.75, function(dataUrl){
-    var antwort = getAntwortFor(currentEinheit(), ziel.subId, ziel.frageId);
-    antwort.foto = dataUrl;
+    if(ziel.subId === '__stammdaten__'){
+      currentEinheit().stammdatenFoto = dataUrl;
+    } else {
+      var antwort = getAntwortFor(currentEinheit(), ziel.subId, ziel.frageId);
+      antwort.foto = dataUrl;
+    }
     fotoZiel = null;
     saveState();
     render();
