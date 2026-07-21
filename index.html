@@ -440,18 +440,18 @@ function dateienName(basis, endung){
   var safe = (k.kunde||'Begehung').replace(/[^a-z0-9äöüß]+/gi,'_').replace(/^_+|_+$/g,'');
   return (basis||'Begehung') + '_' + safe + '_' + (k.datum||'') + '.' + endung;
 }
-function gesamtMangelAnzahl(){
+function gesamtMangelAnzahl(themaKeys){
   var n = 0;
-  THEMA_ORDER.forEach(function(key){
+  (themaKeys||THEMA_ORDER).forEach(function(key){
     var def = LEITFADEN[key];
     var ts = getThemaState(key);
     ts.einheiten.forEach(function(e){ if(einheitHatMangel(e, def)) n++; });
   });
   return n;
 }
-function gesamtEinheitenAnzahl(){
+function gesamtEinheitenAnzahl(themaKeys){
   var n = 0;
-  THEMA_ORDER.forEach(function(key){ n += getThemaState(key).einheiten.length; });
+  (themaKeys||THEMA_ORDER).forEach(function(key){ n += getThemaState(key).einheiten.length; });
   return n;
 }
 var app = document.getElementById('app');
@@ -644,7 +644,7 @@ var FEUERLOESCHER_STAMMDATEN_FELDER = [
   {key:'wandhalter', label:'Wandhalter vorhanden', typ:'select', optionen:['','Ja','Nein']}
 ];
 var WANDHYDRANT_STAMMDATEN_FELDER = [
-  {key:'typ', label:'Typ', typ:'select', optionen:['','Typ F (formstabil)','Typ S (Schlauch flach)']},
+  {key:'typ', label:'Typ', typ:'select', optionen:['','Typ F (Flachschlauch)','Typ S (formstabil)']},
   {key:'schlauchgroesse', label:'Schlauchlänge/Größe', typ:'text', placeholder:'z.B. 30m DN25'},
   {key:'ruhedruck', label:'Ruhedruck (bar)', typ:'text'},
   {key:'fliessdruck', label:'Fließdruck (bar)', typ:'text'},
@@ -1023,7 +1023,8 @@ function renderMangelSeite(doc, m, nummer, gesamt, pageW, pageH){
   doc.line(PDF_MARGIN, y2+40, pageW-PDF_MARGIN, y2+40);
 }
 
-function buildPdfDoc(){
+function buildPdfDoc(themaKeysParam){
+  var themaKeys = themaKeysParam || THEMA_ORDER;
   var jsPDF = window.jspdf.jsPDF;
   var doc = new jsPDF({ unit:'pt', format:'a4' });
   var pageW = doc.internal.pageSize.getWidth();
@@ -1059,7 +1060,7 @@ function buildPdfDoc(){
   doc.text(k.adresse||'', pageW/2, 336, { align:'center' });
   doc.text('Datum: ' + (k.datum||'–'), pageW/2, 356, { align:'center' });
 
-  var deckblattThemen = THEMA_ORDER.filter(function(key){ return getThemaState(key).einheiten.length>0; });
+  var deckblattThemen = themaKeys.filter(function(key){ return getThemaState(key).einheiten.length>0; });
   if(deckblattThemen.length>0){
     var einleitungY = 390;
     doc.setFontSize(9.5);
@@ -1076,7 +1077,7 @@ function buildPdfDoc(){
   }
 
   // ---------- PRÜFBERICHTE: eine Seite pro Einheit, unabhaengig vom Status ----------
-  THEMA_ORDER.forEach(function(themaKey){
+  themaKeys.forEach(function(themaKey){
     var def = LEITFADEN[themaKey];
     var meta = THEMA_META[themaKey];
     var ts = getThemaState(themaKey);
@@ -1088,7 +1089,7 @@ function buildPdfDoc(){
 
   // ---------- MÄNGELBERICHT: eine Seite pro einzelnem Mangel ----------
   var alleMaengel = [];
-  THEMA_ORDER.forEach(function(themaKey){
+  themaKeys.forEach(function(themaKey){
     var def = LEITFADEN[themaKey];
     var meta = THEMA_META[themaKey];
     var ts = getThemaState(themaKey);
@@ -1130,15 +1131,15 @@ function buildPdfDoc(){
   zeile('Objekt-/Anlagen-Nr.:', k.objektNr);
   zeile('Prüfer:', k.pruefer);
   y += 10;
-  var gesamtMangel = gesamtMangelAnzahl();
-  var gesamtEinheiten = gesamtEinheitenAnzahl();
+  var gesamtMangel = gesamtMangelAnzahl(themaKeys);
+  var gesamtEinheiten = gesamtEinheitenAnzahl(themaKeys);
   doc.setFont(undefined,'bold');
   doc.setTextColor(gesamtMangel>0 ? 192 : 31, gesamtMangel>0 ? 57 : 122, gesamtMangel>0 ? 43 : 61);
   doc.text(gesamtEinheiten + ' Prüfpunkte erfasst, ' + gesamtMangel + ' Mangel' + (gesamtMangel===1?'':'mängel') + ' insgesamt', PDF_MARGIN, y);
   doc.setTextColor(40,40,40);
   doc.setFont(undefined,'normal');
   y += 30;
-  THEMA_ORDER.forEach(function(key){
+  themaKeys.forEach(function(key){
     var def = LEITFADEN[key];
     var ts = getThemaState(key);
     if(ts.einheiten.length===0) return;
@@ -1151,7 +1152,7 @@ function buildPdfDoc(){
   });
   y += 14;
 
-  var relevanteThemen = THEMA_ORDER.filter(function(key){ return getThemaState(key).einheiten.length>0; });
+  var relevanteThemen = themaKeys.filter(function(key){ return getThemaState(key).einheiten.length>0; });
   var relevanteNormen = relevanteThemen.map(function(key){ return THEMA_META[key].normKurz; });
   var normenText = relevanteNormen.join('; ');
   var kuerzestesIntervall = relevanteThemen.reduce(function(min, key){
@@ -1172,7 +1173,7 @@ function buildPdfDoc(){
   y += abschlussLines.length * 14 + 20;
 
   var alleEinheitenFlat = [];
-  THEMA_ORDER.forEach(function(key){
+  themaKeys.forEach(function(key){
     var def = LEITFADEN[key];
     var ts = getThemaState(key);
     ts.einheiten.forEach(function(e){
@@ -1279,6 +1280,13 @@ function dataUrlToUint8Array(dataUrl){
 function buildZipBlob(pdfBlob, callback){
   var zip = new JSZip();
   zip.file(dateienName('Bericht','pdf'), pdfBlob);
+  THEMA_ORDER.forEach(function(themaKey){
+    if(getThemaState(themaKey).einheiten.length === 0) return;
+    var def = LEITFADEN[themaKey];
+    var einzelDoc = buildPdfDoc([themaKey]);
+    var einzelName = dateienName('Einzelbericht_' + def.label.replace(/[^a-z0-9äöüß]+/gi,'_'), 'pdf');
+    zip.file(einzelName, einzelDoc.output('blob'));
+  });
   var fotosOrdner = zip.folder('Fotos');
   var zaehler = {};
   THEMA_ORDER.forEach(function(themaKey){
