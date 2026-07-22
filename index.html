@@ -524,7 +524,8 @@ function renderEinheitenListe(){
     return '<div class="einheit-row" onclick="AppActions.openEinheit(\''+e.id+'\')">'+
       '<div><b>'+escapeHtml(def.einheitLabel)+' '+escapeHtml(e.nummer)+'</b>'+(e.istNeu?' <span class="muted">(Neuanlage)</span>':'')+'<br><span class="muted">'+escapeHtml(e.standort)+'</span></div>'+
       '<span class="badge badge-'+status+'">'+statusText+'</span>'+
-      '<button class="appbar-btn" style="margin-left:8px" onclick="event.stopPropagation();AppActions.loescheEinheit(\''+e.id+'\')" title="Löschen">🗑</button>'+
+      '<button class="appbar-btn" style="margin-left:8px" onclick="event.stopPropagation();AppActions.kopiereEinheit(\''+e.id+'\')" title="Kopieren">📋</button>'+
+      '<button class="appbar-btn" style="margin-left:4px" onclick="event.stopPropagation();AppActions.loescheEinheit(\''+e.id+'\')" title="Löschen">🗑</button>'+
     '</div>';
   }).join('') || '<p class="hint">Noch keine erfasst.</p>';
   return ''+
@@ -1376,6 +1377,19 @@ window.AppActions = {
     if(!neueNummer || !neuerStandort){ alert('Nummer und Standort dürfen nicht leer sein.'); return; }
     einheit.nummer = neueNummer;
     einheit.standort = neuerStandort;
+    saveState();
+    render();
+  },
+  kopiereEinheit: function(einheitId){
+    var themaKey = state.nav.themaKey;
+    var ts = getThemaState(themaKey);
+    var original = ts.einheiten.find(function(e){ return e.id === einheitId; });
+    if(!original) return;
+    var kopie = JSON.parse(JSON.stringify(original));
+    kopie.id = uid();
+    kopie.nummer = String(ts.einheiten.length + 1);
+    kopie.standort = kopie.nummer + '.1';
+    ts.einheiten.push(kopie);
     saveState();
     render();
   },
