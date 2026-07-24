@@ -448,7 +448,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   --radius:12px;
 }
 *{box-sizing:border-box;}
-html,body{margin:0;padding:0;background:var(--c-primary);color:var(--c-text);font-family:Arial,Helvetica,sans-serif;}
+html,body{margin:0;padding:0;background:var(--c-primary);color:var(--c-text);font-family:Arial,Helvetica,sans-serif;overscroll-behavior-x:none;}
 #app{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh;max-width:560px;margin:0 auto;background:var(--c-bg);}
 .appbar{background:var(--c-primary);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;gap:10px;}
 .appbar-title{font-size:17px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -597,6 +597,52 @@ var FotoStore = (function(){
     },
     get: function(id){ return tx('readonly', function(st){ return st.get(id); }); },
     alle: function(){ return tx('readonly', function(st){ return st.getAllKeys(); }); },
+    leeren: function(){ return tx('readwrite', function(st){ st.clear(); }); }
+  };
+})();
+
+// ---------------------------------------------------------------------------
+// SICHERUNGSSPEICHER (IndexedDB, BEWUSST eigene Datenbank)
+// Getrennt von 'fisc_fotos', damit an der Fotodatenbank kein Schema-Upgrade
+// noetig ist. Ein Fehler hier darf die Fotos niemals gefaehrden.
+// Ein Eintrag: { id, zeit, kunde, einheiten, json }
+// ---------------------------------------------------------------------------
+var SicherungsStore = (function(){
+  var DB_NAME = 'fisc_sicherung', DB_VERSION = 1, STORE = 'staende';
+  var dbPromise = null;
+  function db(){
+    if(dbPromise) return dbPromise;
+    dbPromise = new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error('IndexedDB nicht verfügbar')); return; }
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = function(){
+        var d = req.result;
+        if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id' });
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+    return dbPromise;
+  }
+  function tx(mode, fn){
+    return db().then(function(d){
+      return new Promise(function(resolve, reject){
+        var t = d.transaction(STORE, mode);
+        var st = t.objectStore(STORE);
+        var out = fn(st);
+        t.oncomplete = function(){ resolve(out && out.result !== undefined ? out.result : out); };
+        t.onerror = function(){ reject(t.error); };
+        t.onabort = function(){ reject(t.error || new Error('Transaktion abgebrochen')); };
+      });
+    });
+  }
+  return {
+    verfuegbar: function(){ return !!window.indexedDB; },
+    put: function(eintrag){ return tx('readwrite', function(st){ st.put(eintrag); }).then(function(){ return eintrag.id; }); },
+    get: function(id){ return tx('readonly', function(st){ return st.get(id); }); },
+    alle: function(){ return tx('readonly', function(st){ return st.getAll(); }); },
+    alleIds: function(){ return tx('readonly', function(st){ return st.getAllKeys(); }); },
+    loeschen: function(id){ return tx('readwrite', function(st){ st.delete(id); }); },
     leeren: function(){ return tx('readwrite', function(st){ st.clear(); }); }
   };
 })();
@@ -863,6 +909,110 @@ function saveStateVerzoegert(){
 function saveStateSofort(){
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   saveState();
+  sicherungSchreiben(false);
+}
+
+// ---------------------------------------------------------------------------
+// SICHERUNGEN (Snapshots)
+// Der Zustand liegt in einem einzigen localStorage-Schluessel. Wird der durch
+// eine Fehlbedienung ueberschrieben, ist die Begehung weg. Deshalb legen wir
+// zusaetzlich einen Ringpuffer von Staenden in IndexedDB ab.
+// Regel: hoechstens alle SICHERUNG_INTERVALL_MS ein Stand, aber nur wenn sich
+// wirklich etwas geaendert hat. Vor jeder Loeschaktion wird erzwungen.
+// ---------------------------------------------------------------------------
+var SICHERUNG_MAX = 12;
+var SICHERUNG_INTERVALL_MS = 3 * 60 * 1000;
+var letzteSicherungZeit = 0;
+var letzteSicherungInhalt = null;
+var letzteSicherungEinheiten = -1;
+var sicherungLaeuft = false;
+var sicherungWarteschlange = [];
+
+function zaehleEinheiten(s){
+  var n = 0;
+  for(var i=0;i<THEMA_ORDER.length;i++){
+    var t = s && s.themen && s.themen[THEMA_ORDER[i]];
+    if(t && t.einheiten) n += t.einheiten.length;
+  }
+  return n;
+}
+
+// Fuer die Aenderungserkennung zaehlt nur der Inhalt. Auf welchem Bildschirm
+// der Pruefer gerade steht, ist keine Aenderung -- sonst wuerde jeder Tipp auf
+// "Zurueck" eine Sicherung erzeugen und die echten Staende verdraengen.
+function sicherungsInhalt(){
+  return JSON.stringify({
+    kopfdaten: state.kopfdaten,
+    themen: state.themen,
+    unterschriften: state.unterschriften
+  });
+}
+
+// erzwingen=true umgeht die Zeitsperre (vor Loeschaktionen, beim Wegschalten).
+// Die Entscheidung UND der zu sichernde Stand entstehen synchron; geschrieben
+// wird ueber eine Warteschlange. Damit kann ein zweiter Aufruf, der waehrend
+// eines laufenden Schreibvorgangs hereinkommt, weder verlorengehen noch den
+// falschen (naemlich schon veraenderten) Stand ablegen.
+function sicherungSchreiben(erzwingen){
+  if(!SicherungsStore.verfuegbar()) return Promise.resolve(false);
+  var json, inhalt;
+  try { json = JSON.stringify(state); inhalt = sicherungsInhalt(); } catch(e){ return Promise.resolve(false); }
+  if(inhalt === letzteSicherungInhalt) return Promise.resolve(false);
+  var anzahl = zaehleEinheiten(state);
+  // Kommt eine Anlage dazu oder faellt eine weg, ist das ein Einschnitt --
+  // der wird sofort gesichert und nicht bis zum Ablauf der Zeitsperre verzoegert.
+  if(letzteSicherungEinheiten !== -1 && anzahl !== letzteSicherungEinheiten) erzwingen = true;
+  var jetzt = Date.now();
+  if(!erzwingen && (jetzt - letzteSicherungZeit) < SICHERUNG_INTERVALL_MS) return Promise.resolve(false);
+  // Ein leerer Zustand ist nichts wert und wuerde nur echte Staende verdraengen.
+  if(anzahl === 0 && !(state.kopfdaten && state.kopfdaten.kunde)) return Promise.resolve(false);
+  letzteSicherungZeit = jetzt;
+  letzteSicherungInhalt = inhalt;
+  letzteSicherungEinheiten = anzahl;
+  sicherungWarteschlange.push({
+    id: 's_' + jetzt.toString(36) + '_' + Math.random().toString(36).slice(2,6),
+    zeit: jetzt,
+    kunde: (state.kopfdaten && state.kopfdaten.kunde) || '',
+    einheiten: anzahl,
+    json: json
+  });
+  return sicherungAbarbeiten();
+}
+
+function sicherungAbarbeiten(){
+  if(sicherungLaeuft || sicherungWarteschlange.length === 0) return Promise.resolve(false);
+  sicherungLaeuft = true;
+  var eintrag = sicherungWarteschlange.shift();
+  return SicherungsStore.put(eintrag).then(function(){
+    return SicherungsStore.alleIds();
+  }).then(function(ids){
+    // Ringpuffer: die aeltesten Ueberzaehligen fliegen raus. Die ID beginnt mit
+    // dem Zeitstempel in Basis 36, deshalb ist die Sortierung der IDs zeitlich.
+    ids = (ids || []).slice().sort();
+    var zuviel = ids.length - SICHERUNG_MAX;
+    var kette = Promise.resolve();
+    for(var i=0;i<zuviel;i++){
+      (function(id){ kette = kette.then(function(){ return SicherungsStore.loeschen(id); }); })(ids[i]);
+    }
+    return kette;
+  }).then(function(){
+    sicherungLaeuft = false;
+    return sicherungAbarbeiten().then(function(){ return true; });
+  }).catch(function(){
+    // Schreiben fehlgeschlagen: Merker zuruecksetzen, damit der naechste
+    // Versuch nicht faelschlich denkt, der Stand liege schon im Speicher.
+    letzteSicherungInhalt = null;
+    letzteSicherungEinheiten = -1;
+    letzteSicherungZeit = 0;
+    sicherungLaeuft = false;
+    return false;
+  });
+}
+
+function sicherungZeitText(zeit){
+  var d = new Date(zeit);
+  function zz(n){ return (n<10?'0':'') + n; }
+  return zz(d.getDate()) + '.' + zz(d.getMonth()+1) + '. ' + zz(d.getHours()) + ':' + zz(d.getMinutes());
 }
 function getThemaState(themaKey){
   if(!state.themen[themaKey]) state.themen[themaKey] = { einheiten: [] };
@@ -1089,12 +1239,51 @@ function render(){
     case 'neueEinheit': html = renderNeueEinheit(); break;
     case 'wizard': html = renderWizard(); break;
     case 'abschluss': html = renderAbschluss(); break;
+    case 'sicherungen': html = renderSicherungen(); break;
     default: html = renderStart();
   }
   loeseObjektUrls();
   app.innerHTML = html;
   hydriereFotos();
   if(state.screen === 'abschluss') initSignaturePads();
+  if(state.screen === 'sicherungen') hydriereSicherungen();
+}
+// Die Liste kommt aus IndexedDB, also asynchron nachgeladen -- gleiches
+// Muster wie bei den Fotos.
+function renderSicherungen(){
+  return ''+
+  '<div class="appbar"><button class="appbar-btn" onclick="AppActions.goDashboard()">Zurück</button><div class="appbar-title">Sicherungen</div><span style="width:60px"></span></div>'+
+  '<div class="content">'+
+    '<h2>Automatische Sicherungen</h2>'+
+    '<p class="hint">Die App legt im Hintergrund Stände ab (höchstens alle 3 Minuten, nur bei Änderungen, die letzten '+SICHERUNG_MAX+'). Beim Zurückspielen wird der aktuelle Stand vorher zusätzlich gesichert.</p>'+
+    '<div id="sicherungListe"><p class="muted">Sicherungen werden geladen …</p></div>'+
+  '</div>'+
+  '<div class="actionbar"><button class="btn btn-secondary" onclick="AppActions.goDashboard()">Zurück zur Übersicht</button></div>';
+}
+function hydriereSicherungen(){
+  var ziel = document.getElementById('sicherungListe');
+  if(!ziel) return;
+  SicherungsStore.alle().then(function(liste){
+    var el = document.getElementById('sicherungListe');
+    if(!el) return;
+    liste = (liste || []).slice().sort(function(a,b){ return b.zeit - a.zeit; });
+    if(liste.length === 0){
+      el.innerHTML = '<div class="placeholder-box">Noch keine Sicherung vorhanden. Sobald Objektdaten erfasst sind, entstehen sie von selbst.</div>';
+      return;
+    }
+    el.innerHTML = liste.map(function(s){
+      var wer = s.kunde ? escapeHtml(s.kunde) : 'ohne Kundenname';
+      var groesse = Math.round((s.json ? s.json.length : 0) / 1024);
+      return '<div class="einheit-row">'+
+        '<div><div class="thema-name">'+escapeHtml(sicherungZeitText(s.zeit))+' Uhr</div>'+
+        '<div class="thema-info">'+wer+' · '+s.einheiten+' Anlagen/Geräte · '+groesse+' KB</div></div>'+
+        '<button class="btn btn-secondary" style="width:auto;padding:8px 12px" onclick="AppActions.sicherungZurueck(\''+escapeHtml(s.id)+'\')">Zurückspielen</button>'+
+      '</div>';
+    }).join('');
+  }).catch(function(){
+    var el = document.getElementById('sicherungListe');
+    if(el) el.innerHTML = '<div class="placeholder-box">Die Sicherungen konnten nicht gelesen werden.</div>';
+  });
 }
 function renderStart(){
   var k = state.kopfdaten;
@@ -1134,7 +1323,7 @@ function renderDashboard(){
     '</div>';
   }).join('');
   return ''+
-  '<div class="appbar"><button class="appbar-btn" onclick="AppActions.goStart()">Daten</button><div class="appbar-title">'+escapeHtml(state.kopfdaten.kunde||'Begehung')+'</div><span style="width:60px"></span></div>'+
+  '<div class="appbar"><button class="appbar-btn" onclick="AppActions.goStart()">Daten</button><div class="appbar-title">'+escapeHtml(state.kopfdaten.kunde||'Begehung')+'</div><button class="appbar-btn" onclick="AppActions.goSicherungen()" title="Sicherungen">&#8635;</button></div>'+
   '<div class="content"><h2>Themen</h2>'+rows+'</div>'+
   '<div class="actionbar"><button class="btn btn-primary" onclick="AppActions.goAbschluss()">Objekt abschließen ✓</button></div>';
 }
@@ -2150,7 +2339,9 @@ window.AppActions = {
     var ts = getThemaState(themaKey);
     var einheit = ts.einheiten.find(function(e){ return e.id === einheitId; });
     if(!einheit) return;
-    if(!confirm('"'+einheit.nummer+'" ('+einheit.standort+') wirklich löschen?\n\nDas kann nicht rückgängig gemacht werden.')) return;
+    if(!confirm('"'+einheit.nummer+'" ('+einheit.standort+') wirklich löschen?\n\nDer Stand von vorher liegt danach unter "Sicherungen".')) return;
+    // Erst sichern, dann loeschen -- sonst ist der Stand vor dem Loeschen weg.
+    sicherungSchreiben(true).catch(function(){});
     ts.einheiten = ts.einheiten.filter(function(e){ return e.id !== einheitId; });
     saveState();
     render();
@@ -2201,6 +2392,28 @@ window.AppActions = {
     render();
   },
   goAbschluss: function(){ state.screen = 'abschluss'; render(); },
+  goSicherungen: function(){ sicherungSchreiben(true).catch(function(){}); state.screen = 'sicherungen'; render(); },
+  sicherungZurueck: function(id){
+    if(!confirm('Diesen Stand zurückspielen?\n\nDer aktuelle Stand wird vorher zusätzlich gesichert, geht also nicht verloren.')) return;
+    sicherungSchreiben(true).catch(function(){}).then(function(){
+      return SicherungsStore.get(id);
+    }).then(function(eintrag){
+      if(!eintrag || !eintrag.json){ alert('Diese Sicherung ist nicht mehr vorhanden.'); return; }
+      var neu;
+      try { neu = JSON.parse(eintrag.json); } catch(e){ alert('Die Sicherung ist beschädigt und kann nicht gelesen werden.'); return; }
+      state = neu;
+      state.screen = 'dashboard';
+      // Damit der zurueckgespielte Stand selbst wieder gesichert werden darf.
+      letzteSicherungInhalt = null;
+      letzteSicherungEinheiten = -1;
+      letzteSicherungZeit = 0;
+      saveStateSofort();
+      render();
+      alert('Stand vom ' + sicherungZeitText(eintrag.zeit) + ' Uhr ist wieder aktiv.');
+    }).catch(function(){
+      alert('Die Sicherung konnte nicht gelesen werden.');
+    });
+  },
   signaturLoeschen: function(stateKey){
     state.unterschriften[stateKey] = null;
     saveState();
@@ -2265,6 +2478,9 @@ window.AppActions = {
   _abschlussAbfrage: function(){
     var loeschen = confirm('Bericht wurde gespeichert/verschickt.\n\nIst das Objekt damit abgeschlossen?\n\nOK = Daten jetzt vom Gerät löschen\nAbbrechen = Daten behalten (z. B. um später etwas nachzutragen)');
     if(loeschen){
+      // Textdaten wandern noch in eine Sicherung. Die Fotos werden bewusst
+      // endgueltig geloescht -- eine zurueckgespielte Sicherung ist danach ohne Fotos.
+      sicherungSchreiben(true).catch(function(){});
       state = createEmptyState();
       saveState();
       FotoStore.leeren().catch(function(){});
@@ -2275,7 +2491,8 @@ window.AppActions = {
     }
   },
   neueBegehung: function(){
-    if(!confirm('Wirklich eine neue, leere Begehung starten? Aktuelle Daten gehen verloren.')) return;
+    if(!confirm('Wirklich eine neue, leere Begehung starten?\n\nDer aktuelle Stand wird vorher gesichert und liegt danach unter "Sicherungen".')) return;
+    sicherungSchreiben(true).catch(function(){});
     state = createEmptyState();
     saveState();
     render();
@@ -2283,7 +2500,43 @@ window.AppActions = {
 };
 window.addEventListener('pagehide', saveStateSofort);
 window.addEventListener('beforeunload', saveStateSofort);
-document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'hidden') saveStateSofort(); });
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden'){
+    saveStateSofort();
+    // Beim Wegschalten der App eine Sicherung erzwingen. IndexedDB ist
+    // asynchron, das kann also abbrechen -- die getakteten Staende sind die
+    // eigentliche Absicherung, das hier ist nur die Zugabe.
+    sicherungSchreiben(true).catch(function(){});
+  }
+});
+
+// ---------------------------------------------------------------------------
+// WISCHGESTEN-BREMSE
+// Safari deutet ein Wischen von der Bildschirmkante als "zurueck". Ohne
+// Eintrag in der Chronik landet der Pruefer auf einer leeren Seite und glaubt,
+// die Begehung sei weg. Wir legen einen Eintrag an, fangen ihn ab und machen
+// aus der Wischgeste eine normale Zurueck-Bewegung innerhalb der App.
+// Unter iOS Safari ist das eine Bremse, keine Sperre -- restlos abschalten
+// laesst sich die Geste nicht. Im Standalone-Modus (PWA) entfaellt sie.
+// ---------------------------------------------------------------------------
+var SCREEN_ZURUECK = {
+  dashboard: 'start',
+  einheiten: 'dashboard',
+  neueEinheit: 'einheiten',
+  wizard: 'einheiten',
+  abschluss: 'dashboard',
+  sicherungen: 'dashboard'
+};
+function chronikEintragSetzen(){
+  try { history.pushState({ fisc: 1 }, ''); } catch(e){}
+}
+chronikEintragSetzen();
+window.addEventListener('popstate', function(){
+  saveStateSofort();
+  chronikEintragSetzen();
+  var ziel = SCREEN_ZURUECK[state.screen];
+  if(ziel){ state.screen = ziel; render(); }
+});
 document.getElementById('cameraInput').addEventListener('change', function(e){
   var file = e.target.files && e.target.files[0];
   if(!file || !fotoZiel) return;
