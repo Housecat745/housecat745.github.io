@@ -737,6 +737,18 @@ var LEITFADEN = {
         {id:'f9', text:'Ist eine absenkbare Bodendichtung vorhanden und vollständig funktionsfähig?', typ:'A', nErf:true},
         {id:'f10', text:'Ist die Türanlage im Originalzustand und unbeschädigt?', typ:'A', nErf:true}
       ]},
+      { id:'fsa', label:'Feststellanlage (DIN 14677)', fragen:[
+        {id:'f1', text:'Auslösevorrichtungen (Anzahl und Anordnung gem. Zulassung) vorhanden und funktionsfähig?', typ:'A', nErf:true},
+        {id:'f2', text:'Rauchmelder sauber, nicht überaltert; Funktionsauslösung mit Prüfmittel i. O.?', hinweis:'Austauschintervall nach Herstellervorgabe beachten', typ:'A', nErf:true},
+        {id:'f3', text:'Handauslösetaster vorhanden, gekennzeichnet, zugänglich und funktionsfähig?', typ:'A', nErf:true},
+        {id:'f4', text:'Haftmagnet und Gegenplatte: Zustand, Sauberkeit, Haltekraft und Ausrichtung i. O.?', typ:'A', nErf:true},
+        {id:'f5', text:'Energieversorgung i. O. und Abschluss schließt bei Spannungsausfall selbsttätig?', typ:'A', nErf:true},
+        {id:'f6', text:'Auslösung führt zum vollständigen selbsttätigen Schließen (bei zweiflügeligen in richtiger Reihenfolge)?', typ:'A', nErf:true},
+        {id:'f7', text:'Aufschaltung auf BMA wirksam und rückwirkungsfrei?', hinweis:'falls vorhanden', typ:'A', nErf:true},
+        {id:'f8', text:'Verkabelung: Zustand, Befestigung, keine Beschädigung?', typ:'A', nErf:true},
+        {id:'f9', text:'Dokumentation nach Anhang B DIN 14677 (Lage, Zulassung/Bauartgenehmigung, Prüfbuch) vollständig?', typ:'A', nErf:true},
+        {id:'f10', text:'Kennzeichnungs-/Zulassungsschild der Feststellanlage vorhanden und lesbar?', typ:'B'}
+      ]},
       { id:'sonstiges', label:'Sonstiges', pflicht:true, fragen:[
         {id:'f1', text:'Ist ein Hinweisschild Brandschutztür / Feuerschutzabschluss angebracht?', typ:'B'},
         {id:'f2', text:'Wurden Herstellerunterlagen der Tür durch den Betreiber zur Verfügung gestellt?', typ:'A'}
@@ -761,6 +773,15 @@ var LEITFADEN = {
         {id:'f6', text:'Wandhydrantenschrank frei zugänglich?', hinweis:'nicht verstellt, Tür öffnet ungehindert', typ:'A'},
         {id:'f7', text:'Anschlüsse dicht, keine Undichtigkeiten?', typ:'D'},
         {id:'f8', text:'Kennzeichnung/Beschilderung vorhanden?', typ:'B'}
+      ]},
+      { id:'gesamtanlage', label:'Löschwasseranlage gesamt (DIN 14462)', fragen:[
+        {id:'f1', text:'Übergabestelle / Anschluss an die Löschwasserversorgung geprüft und dokumentiert?', typ:'A', nErf:true},
+        {id:'f2', text:'Sicherungseinrichtung zur Trennung von Trink- und Löschwasser (DIN 1988-600) vorhanden und funktionsfähig?', hinweis:'falls vorhanden bzw. gefordert', typ:'A', nErf:true},
+        {id:'f3', text:'Druckerhöhungsanlage (DEA): Funktionslauf, Druckhaltung, Netzersatz-/Notbetrieb i. O.?', hinweis:'falls vorhanden', typ:'A', nErf:true},
+        {id:'f4', text:'Füll- und Entleerungsstation vorhanden und funktionsfähig?', hinweis:'falls vorhanden', typ:'A', nErf:true},
+        {id:'f5', text:'Rohrnetz sichtbar dicht, befestigt, korrosionsfrei und frostsicher?', typ:'A', nErf:true},
+        {id:'f6', text:'Ruhe- und Fließdruck an der ungünstigsten Entnahmestelle im zulässigen Bereich?', hinweis:'Fließdruck max. 8 bar, Ruhedruck max. 12 bar an keiner Stelle der Anlage (DIN 14462)', typ:'A', nErf:true},
+        {id:'f7', text:'Übersichts-/Bestandsplan der Anlage vorhanden?', typ:'B'}
       ]},
       { id:'druckpruefung', label:'Schlauch-Druckprobe (Mehrjahres-Prüfung)', fragen:[
         {id:'f1', text:'Schlauch-Druckprobe mit höchstem zulässigem Betriebsdruck durchgeführt?', hinweis:'Nach DIN EN 671-3 alle 5 Jahre – für formbeständige Schläuche (DIN EN 694) und Flachschläuche (DIN 14811) gleichermaßen. Bei ungünstigen Umgebungseinflüssen (z. B. Witterung) in kürzeren Abständen.', typ:'B'}
@@ -810,7 +831,8 @@ var THEMA_META = {
       'ASR A2.2 (Mindestanzahl Feuerlöscher, max. Prüfintervall 2 Jahre, Zugänglichkeit, Kennzeichnung)',
       'DIN 14406-4: Prüfumfang umfasst Sichtprüfung, Dichtheit, Betriebsbereitschaft, Kennzeichnung, Plomben/Sicherungsstreifen, Füllmenge, Druckanzeige',
       'Instandhaltung durch Sachkundigen nach DIN 14406-4 bzw. Fachkundigen nach ASR A2.2 Pkt. 7 – Eintrag in das Prüfbuch nach DIN 14406-4',
-      'Zusätzlich nach BetrSichV durch eine zur Prüfung befähigte Person: innere Prüfung alle 5 Jahre, Festigkeitsprüfung alle 10 Jahre (CO₂-Löscher: zusätzliche Prüfungen durch zugelassene Überwachungsstelle)',
+      'Zusätzlich nach BetrSichV (Anhang 2 Abschnitt 4) durch eine zur Prüfung befähigte Person: innere Prüfung alle 5 Jahre, Festigkeitsprüfung alle 10 Jahre (CO₂-Löscher: zusätzliche Prüfungen durch zugelassene Überwachungsstelle). DIN 14406-4 nimmt diese Druckgeräteprüfungen ausdrücklich aus ihrem Anwendungsbereich aus',
+      'Rechtskreis: Der Feuerlöscher unterliegt dem Arbeitsstätten- und Betriebssicherheitsrecht, nicht dem Bauordnungsrecht. In Rheinland-Pfalz ist er nicht Gegenstand der AnlPrüfVO',
       'Löscher mit Mängeln sind sofort außer Betrieb zu nehmen und durch funktionsfähige Geräte zu ersetzen',
       'Aufbewahrungspflicht der Prüfprotokolle: mindestens bis zur nächsten regulären Prüfung, empfohlen 5 Jahre'
     ]
@@ -828,6 +850,8 @@ var THEMA_META = {
       'Maßgeblich für Prüfumfang und Toleranzen des einzelnen Feuerschutzabschlusses sind dessen bauaufsichtliche Zulassung (AbZ/abP) und die Herstellervorgaben',
       'DIN 14677-1 gilt ausschließlich für elektrisch gesteuerte Feststellanlagen (FSA) – nicht für Türen ohne FSA. Ein Obertürschließer allein ist keine Feststellanlage',
       'Instandhaltung einer FSA nach DIN 14677-2 nur durch eine Fachkraft für Feststellanlagen mit Kompetenznachweis (Gültigkeit 5 Jahre); FSA benötigen eine Zulassung des DIBt',
+      'FSA-Intervalle nach DIN 14677-1: Funktionsprüfung längstens alle 3 Monate durch eingewiesene Person, Wartung mindestens einmal jährlich durch Fachkraft für Feststellanlagen',
+      'Vorbehalt Altanlagen: Das 3-Monats-Intervall gilt nur, wenn DIN 14677 Bestandteil des Zulassungsbescheids der FSA ist. Anlagen nach der alten DIBt-Richtlinie (Stand 1988) bleiben bei monatlicher Funktionsprüfung, bis eine Neuabnahme erfolgt ist',
       'Prüfumfang: Selbstschließung, Schließfolge bei zweiflügeligen Türen, Dichtungen (Rauch-/Brandschutz), Baubeschläge, Auslöseeinrichtung, Kennzeichnung (T30/T90/RS)',
       'Baurechtliche Pflicht zur Funktionserhaltung: LBauO Rheinland-Pfalz i. V. m. VV TB RP und MLAR, Sonderbauvorschriften, Betriebssicherheitsverordnung (BetrSichV)',
       'Aufbewahrungspflicht Prüfprotokoll: mindestens bis zur nächsten Prüfung, empfohlen 10 Jahre'
@@ -844,7 +868,9 @@ var THEMA_META = {
       'Typ F = Feuerwehr und Selbsthilfe, 100 l/min bei 3 bar Fließdruck bei Gleichzeitigkeit von 3 Entnahmestellen; die Flachschlauchausführung (C 42) ist im öffentlichen Bereich nicht mehr zulässig',
       'Druckprobe der Schläuche mit höchstem zulässigem Betriebsdruck alle 5 Jahre nach DIN EN 671-3, bei ungünstigen Umgebungseinflüssen in kürzeren Abständen',
       'Maximaler Fließdruck 8 bar, maximaler Ruhedruck 12 bar an keiner Stelle der Anlage (DIN 14462)',
-      'Prüfumfang: Schlauch, Absperrventil, Strahlrohr, Haspel/Tragegestell, Schlauchlänge, Zugänglichkeit, Anschlüsse, Kennzeichnung',
+      'Prüfumfang am Wandhydranten: Schlauch, Absperrventil, Strahlrohr, Haspel/Tragegestell, Schlauchlänge, Zugänglichkeit, Anschlüsse, Kennzeichnung',
+      'DIN 14462:2023-07 fordert die Prüfung und Dokumentation aller Komponenten der Löschwasseranlage – Übergabestelle, Sicherungseinrichtungen (Trennung Trink-/Löschwasser nach DIN 1988-600 zu beurteilen), Druckerhöhungsanlage (DEA), Füll- und Entleerstation, Rohrnetz. Eine Einzelprüfung nur nach DIN EN 671-3 am Entnahmegerät genügt für den Anlagennachweis nicht',
+      'Trockene Steigleitung ohne Druckerhöhungsanlage: in Rheinland-Pfalz nach AnlPrüfVO (Anlage Nr. 8, Fassung ab 27.07.2023) nicht prüfpflichtig; die 2-jährliche Instandhaltung nach DIN 14462 Abschnitt 7.3 bleibt jedoch bestehen',
       'Bei n.i.O.-Ergebnis ist die Anlage unverzüglich instand zu setzen, da sie sicherheitsrelevant für die Brandbekämpfung im Ernstfall ist',
       'Aufbewahrungspflicht des Wartungsberichts: mindestens bis zur nächsten Prüfung, empfohlen 5 Jahre'
     ]
@@ -855,8 +881,9 @@ var THEMA_META = {
     normKurz: 'DIN 18232-2 / DIN EN 12101-2',
     pruefintervallJahre: 1,
     hinweise: [
-      'DIN 18232-2: Wartung und Funktionsprüfung mindestens alle 12 Monate durch eine sachkundige Person',
-      'DIN EN 12101-2: Produktnorm für natürlich wirkende Rauch- und Wärmeabzugsgeräte (NRWG) – gilt für elektro-mechanisch angetriebene Öffnungen; maschineller Rauchabzug mit Ventilatoren fällt unter DIN EN 12101-3',
+      'DIN 18232-2:2007-11, Abschnitt 10 (Prüfung, Wartung, Instandsetzung): Wartung und Funktionsprüfung mindestens alle 12 Monate durch eine sachkundige Person. Bemessung und Einbauregeln nach Abschnitten 5–7 derselben Norm',
+      'DIN EN 12101-2: Produktnorm für natürlich wirkende Rauch- und Wärmeabzugsgeräte (NRWG) – gilt für elektro-mechanisch angetriebene Öffnungen. DIN EN 12101-10: Energieversorgung für Entrauchungsanlagen',
+      'Maschineller Rauchabzug (Ventilatoren) fällt unter DIN EN 12101-3 (Produkt) bzw. DIN 18232-5 (Auslegung, Wartung) – nur bei maschinellen Anlagen anzuführen',
       'Zusätzliche Betreiberpflicht: halbjährliche Sichtprüfung nach DIN 18232-2 i. V. m. VdS 2098 und FVLR-Richtlinie 08 (siehe Anlage Betreiberpflichten)',
       'Auslöseeinrichtungen (Handauslösetaster, BMA-Ansteuerung), Antriebe, Endschalter und Notstromversorgung sind besonders zu prüfen',
       'Mängel an der RWA-Anlage sind unverzüglich zu beheben, da sie sicherheitsrelevant für die Rauchableitung im Brandfall sind',
@@ -1443,6 +1470,7 @@ var TUEREN_STAMMDATEN_FELDER = [
   {key:'rauchschutztuer', label:'Rauchschutztür', typ:'select', optionen:['','Ja','Nein']},
   {key:'dichtschliessend', label:'Dichtschließend', typ:'select', optionen:['','Ja','Nein']},
   {key:'feststellanlage', label:'Feststellanlage vorhanden', typ:'select', optionen:['','Ja','Nein']},
+  {key:'fsaIntervall', label:'FSA-Funktionsprüfung – Intervall', typ:'select', optionen:['','3-monatlich (DIN 14677 zugelassen)','monatlich (Altanlage/DIBt 1988)']},
   {key:'obertuerschliesser', label:'Obertürschließer vorhanden', typ:'select', optionen:['','Ja','Nein']},
   {key:'obertuerschliesserBez', label:'Obertürschließer Bezeichnung', typ:'text', placeholder:'z. B. Geze TS-4000'},
   {key:'verglasung', label:'Verglasung', typ:'select', optionen:['','Ja','Nein']},
@@ -1699,6 +1727,18 @@ function folgepruefungText(datumStr, intervallJahre){
   if(isNaN(jahr) || isNaN(monatIdx) || monatIdx<0 || monatIdx>11) return '–';
   return MONATSNAMEN[monatIdx] + ' ' + jahr;
 }
+// Monatsbasierte Frist (fuer unterjaehrige Intervalle wie die FSA-Funktionspruefung nach DIN 14677).
+function folgeMonateText(datumStr, monate){
+  if(!datumStr) return '–';
+  var teile = datumStr.split('-');
+  var jahr = parseInt(teile[0],10);
+  var monatIdx = parseInt(teile[1],10) - 1;
+  if(isNaN(jahr) || isNaN(monatIdx) || monatIdx<0 || monatIdx>11) return '–';
+  monatIdx += (monate || 0);
+  jahr += Math.floor(monatIdx / 12);
+  monatIdx = ((monatIdx % 12) + 12) % 12;
+  return MONATSNAMEN[monatIdx] + ' ' + jahr;
+}
 function renderPruefberichtSeite(doc, def, meta, einheit, pageW, pageH){
   var cy = PDF_MARGIN + 10;
   doc.setFontSize(14);
@@ -1731,6 +1771,18 @@ function renderPruefberichtSeite(doc, def, meta, einheit, pageW, pageH){
     doc.setDrawColor(220,220,220);
     doc.line(PDF_MARGIN, cy, pageW-PDF_MARGIN, cy);
     cy += 14;
+  }
+
+  if(einheitHatFSA(einheit)){
+    var fsaIv = (einheit.stammdaten && einheit.stammdaten.fsaIntervall) || '';
+    var fsaMonate = fsaIv.indexOf('monatlich (Alt') === 0 ? 1 : 3;
+    var basisDatum = (state.kopfdaten && state.kopfdaten.datum) || '';
+    doc.setFontSize(9); doc.setTextColor(40,40,40);
+    doc.setFont(undefined,'bold'); doc.text('Nächste FSA-Funktionsprüfung fällig:', PDF_MARGIN, cy);
+    doc.setFont(undefined,'normal');
+    doc.text(folgeMonateText(basisDatum, fsaMonate) + '  (alle ' + fsaMonate + ' Monate, DIN 14677-1)', PDF_MARGIN+200, cy);
+    cy += 12;
+    doc.setDrawColor(220,220,220); doc.line(PDF_MARGIN, cy, pageW-PDF_MARGIN, cy); cy += 14;
   }
 
   var aktiveIds = aktiveSubthemenIds(einheit, def);
@@ -2370,7 +2422,25 @@ window.AppActions = {
     var einheit = currentEinheit();
     if(!einheit.stammdaten) einheit.stammdaten = {};
     einheit.stammdaten[feld] = wert;
-    saveStateVerzoegert();
+    // Das Stammdatenfeld "Feststellanlage" steuert die FSA-Pruefsektion (DIN 14677):
+    // "Ja" schaltet das optionale Subthema scharf, alles andere schaltet es wieder ab.
+    var umgeschaltet = false;
+    if(feld === 'feststellanlage' && !einheit.istNeu){
+      var def = LEITFADEN[state.nav.themaKey];
+      var hatFsaSub = (def.subthemen || []).some(function(s){ return s.id === 'fsa'; });
+      if(hatFsaSub){
+        if(!einheit.aktiveSubthemen){
+          einheit.aktiveSubthemen = (def.subthemen || [])
+            .map(function(s){ return s.id; })
+            .filter(function(id){ return id !== 'fsa'; });
+        }
+        var idx = einheit.aktiveSubthemen.indexOf('fsa');
+        if(wert === 'Ja' && idx === -1){ einheit.aktiveSubthemen.push('fsa'); umgeschaltet = true; }
+        if(wert !== 'Ja' && idx !== -1){ einheit.aktiveSubthemen.splice(idx, 1); umgeschaltet = true; }
+      }
+    }
+    if(umgeschaltet){ saveState(); render(); }
+    else { saveStateVerzoegert(); }
   },
   nimmStammdatenFoto: function(){
     fotoZiel = { subId: '__stammdaten__', frageId: 'foto' };
