@@ -2816,10 +2816,26 @@ render();
       if(res.hinweise.length) msg+='\n\nHinweise:\n'+res.hinweise.join('\n');
       msg+='\n\nJetzt übernehmen? Die aktuelle Begehung wird ersetzt.';
       if(!confirm(msg)) return;
-      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(res.state)); }
-      catch(e){ alert('Konnte nicht in den Speicher schreiben: '+(e&&e.message?e.message:e)); return; }
-      alert('Import übernommen. Die App wird neu geladen.');
-      location.reload();
+      try{
+        if(window.state && typeof window.render==='function'){
+          // Zustand DIREKT in der laufenden App setzen und neu zeichnen – KEIN reload.
+          // Ein reload würde den Autosave (pagehide/beforeunload) auslösen, der beim
+          // Entladen den alten, leeren Stand über den frischen Import schreibt.
+          window.state.kopfdaten      = res.state.kopfdaten;
+          window.state.themen         = res.state.themen;
+          window.state.screen         = 'dashboard';
+          window.state.unterschriften = res.state.unterschriften;
+          if(typeof window.saveState==='function') window.saveState();
+          window.render();
+          close();
+          alert('Import übernommen: '+objekte.length+' Objekt(e). Kopf und Prüfobjekte sind eingetragen.');
+        } else {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(res.state));
+          location.reload();
+        }
+      }catch(e){
+        alert('Import fehlgeschlagen: '+(e&&e.message?e.message:e));
+      }
     });
   });
 })();
