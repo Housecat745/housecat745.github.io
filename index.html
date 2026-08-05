@@ -2666,5 +2666,165 @@ migriereAltfotos().then(function(migriert){ if(migriert) render(); }).catch(func
 render();
 })();
 </script>
+<!-- ===== THEMIS-Import (additiv, von Claude ergänzt) ===================== -->
+<style>
+#thImportBtn{display:none;position:fixed;top:10px;right:12px;z-index:99999;background:#A6192E;color:#fff;
+  border:none;border-radius:10px;padding:10px 14px;font:600 13px/1.2 system-ui,Arial,sans-serif;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer}
+#thImportBtn:active{transform:translateY(1px)}
+#thOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:none;
+  align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+#thBox{background:#fff;border-radius:14px;max-width:760px;width:100%;padding:20px 22px;
+  font:14px/1.5 system-ui,Arial,sans-serif;color:#1c1c1e;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#thBox h2{margin:0 0 4px;font-size:18px;color:#A6192E}
+#thBox p{margin:6px 0 10px;color:#444}
+#thText{width:100%;height:260px;box-sizing:border-box;border:1px solid #cbd2dc;border-radius:8px;
+  padding:10px;font:13px/1.4 ui-monospace,Consolas,monospace;resize:vertical}
+#thBox .row{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+#thBox button{border:none;border-radius:9px;padding:10px 16px;font:600 14px system-ui,Arial;cursor:pointer}
+.thGo{background:#A6192E;color:#fff}.thCancel{background:#e5e7eb;color:#1c1c1e}
+#thHint{font-size:12px;color:#6b7280;margin-top:8px}
+</style>
+<button id="thImportBtn" title="THEMIS-Bericht in FiSc übernehmen">📄 THEMIS importieren</button>
+<div id="thOverlay">
+  <div id="thBox">
+    <h2>THEMIS-Bericht importieren</h2>
+    <p>THEMIS-Bericht öffnen, gesamten Text markieren (Strg&nbsp;+&nbsp;A), kopieren (Strg&nbsp;+&nbsp;C)
+       und hier einfügen. Der Import legt Kunde, Objekte und Mängel an – Stammdaten und die genaue
+       Prüfpunkt-Zuordnung kontrollierst du danach in der App.</p>
+    <textarea id="thText" placeholder="Hier den kompletten THEMIS-Berichtstext einfügen …"></textarea>
+    <div id="thHint">Achtung: Ein Import ersetzt die aktuelle Begehung. Vorher ggf. sichern/exportieren.</div>
+    <div class="row">
+      <button class="thCancel" id="thCancel">Abbrechen</button>
+      <button class="thGo" id="thGo">Einlesen &amp; übernehmen</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  "use strict";
+  var STORAGE_KEY = 'fp_begehung_v1';
+  // ---------- Konverter-Kern (gekapselt, kollidiert nicht mit der App) -------
+  function pad(n){ n=String(n); return n.length<2?'0'+n:n; }
+  function after(s){ return s.substring(s.indexOf(':')+1).trim(); }
+  function trimText(s){ return String(s||'').replace(/\s+/g,' ').trim(); }
+  function normDatum(s){ var m=String(s).match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); return m? m[3]+'-'+pad(m[2])+'-'+pad(m[1]):''; }
+  function uid(){ return 'u'+Math.random().toString(36).slice(2,9); }
+
+  function parseThemisText(text){
+    var lines=text.split(/\r?\n/), fest=[], cur=null, posRe=/^\s*(\d+)\.(\d+)\b/;
+    function push(){ if(cur) fest.push(cur); }
+    for(var i=0;i<lines.length;i++){
+      var ln=lines[i], m=ln.match(posRe);
+      if(m){ push(); cur={objekt:+m[1],unter:+m[2],gegenstand:ln.replace(posRe,'').trim(),
+              beob:'',massnahme:'',beurteilung:'',termin:'',status:''}; continue; }
+      if(!cur) continue;
+      var t=ln.trim();
+      if(/^Beob\.?\s*Beschreibung\s*:/i.test(t)) cur.beob=after(t);
+      else if(/^Ma[ßss]nahme\s*:/i.test(t))      cur.massnahme=after(t);
+      else if(/^Beurteilung\s*:/i.test(t))        cur.beurteilung=after(t);
+      else if(/^Termin\s*:/i.test(t))             cur.termin=normDatum(after(t));
+      else if(/^Status\s*:/i.test(t))             cur.status=after(t);
+      else if(/^(Mangel\s*Offen|Mangel|Kontrolle|Information)\s*$/i.test(t)&&!cur.status) cur.status=t;
+      else if(!cur.gegenstand && t && !/^Erstellt|^Kontrolliert|^Termin|^Kontakt/i.test(t)) cur.gegenstand=t;
+    }
+    push(); return fest;
+  }
+  function parseKopf(text){
+    function grab(re){ var m=text.match(re); return m?m[1].trim():''; }
+    return { kunde:grab(/Auftraggeber:\s*(.+)/), adresse:grab(/Ort:\s*(.+)/),
+      objektNr:grab(/Nummer:\s*(X\d+)/)||grab(/Projekt[\s\S]*?Nummer:\s*(\S+)/),
+      pruefer:grab(/Verfasser:\s*([^\n]+)/), datum:normDatum(grab(/Datum:\s*(\d{1,2}\.\d{1,2}\.\d{4})/)) };
+  }
+  function gruppiere(fest){ var map={},ord=[]; fest.forEach(function(f){ if(!map[f.objekt]){map[f.objekt]=[];ord.push(f.objekt);} map[f.objekt].push(f); });
+    return ord.map(function(nr){ return {nr:nr,items:map[nr]}; }); }
+  function erkenneGewerk(obj){
+    var basis=((obj.items[0]&&obj.items[0].gegenstand||'')+' '+obj.items.map(function(f){return f.gegenstand||'';}).join(' ')).toLowerCase();
+    if(/rauch-?\s*und\s*wärmeabzug|\brwa\b/.test(basis)) return 'rwa';
+    if(/feststelleinrichtung/.test(basis)) return 'feststelleinrichtung';
+    if(/wandhydrant/.test(basis)) return 'wandhydranten';
+    if(/feuerlösch/.test(basis)) return 'feuerloescher';
+    if(/t\s?30|t30|tür|türe|feuerabschluss|rauchabschluss/.test(basis)) return 'brandschutztueren';
+    return 'brandschutztueren';
+  }
+  function mangelAufPruefpunkt(beob,massnahme,gewerk){
+    var t=(beob+' '+massnahme).toLowerCase();
+    if(gewerk==='brandschutztueren'){
+      if(/kennzeichnung|hinweisschild|beschilder/.test(t)) return {sub:'sonstiges',f:'f1'};
+      if(/rauchfangleiste|rauchfangdicht|dichtung/.test(t)) return {sub:'technisch',f:'f7'};
+      if(/schutzklasse|ersetzt werden|entspricht nicht/.test(t)) return {sub:'technisch',f:'f10'};
+      if(/handauslöseta|feststellanlage|feststelleinrichtung/.test(t)) return {sub:'fsa',f:'f3'};
+      if(/nicht korrekt eingebaut|nicht angeschlossen/.test(t)) return {sub:'fsa',f:'f5'};
+      if(/funktionsfähig|selbsttätig|schließ/.test(t)) return {sub:'technisch',f:'f1'};
+      if(/aufgekeilt|keil/.test(t)) return {sub:'technisch',f:'f2'};
+    }
+    return null;
+  }
+  var ERSTER_PP={brandschutztueren:'technisch__f1',rwa:'wartung__f1',wandhydranten:'wartung__f1',feuerloescher:'aussen__f1'};
+  function baueState(kopf,objekte){
+    var themen={},hinweise=[];
+    objekte.forEach(function(obj){
+      var gewerk=erkenneGewerk(obj),reviewMarke='';
+      if(gewerk==='feststelleinrichtung'){ gewerk='brandschutztueren';
+        reviewMarke='[Import] War in THEMIS „Feststelleinrichtung" (Objekt '+obj.nr+') – hier als Tür/Feststellanlage eingeordnet, bitte prüfen.'; }
+      if(!themen[gewerk]) themen[gewerk]={einheiten:[]};
+      var antworten={},standort='',sammel=[];
+      function setA(key,bem){ if(antworten[key]) antworten[key].bemerkung+=' | '+bem; else antworten[key]={wert:'nein',bemerkung:bem}; }
+      obj.items.forEach(function(f){
+        if(f.gegenstand&&!standort) standort=f.gegenstand.split('/')[0].trim();
+        var istMangel=/mangel/i.test(f.status)||/mangel/i.test(f.beurteilung);
+        if(istMangel&&(f.beob||f.massnahme)){
+          var bem=trimText(f.beob)+(f.massnahme?' → '+trimText(f.massnahme):'')+(f.beurteilung?' ('+trimText(f.beurteilung)+')':'');
+          var pp=mangelAufPruefpunkt(f.beob,f.massnahme,gewerk);
+          if(pp) setA(pp.sub+'__'+pp.f,bem); else sammel.push('Pos '+obj.nr+'.'+f.unter+': '+bem);
+        }
+      });
+      var sammelText=[];
+      if(reviewMarke) sammelText.push(reviewMarke);
+      if(sammel.length) sammelText.push('[Import – Zuordnung im Review prüfen] '+sammel.join(' • '));
+      if(sammelText.length) setA(ERSTER_PP[gewerk]||'technisch__f1',sammelText.join(' | '));
+      themen[gewerk].einheiten.push({id:uid(),nummer:String(obj.nr),standort:standort||'T30-RS',stammdaten:{},antworten:antworten});
+      if(reviewMarke) hinweise.push(reviewMarke);
+    });
+    return { state:{ kopfdaten:{kunde:kopf.kunde||'',adresse:kopf.adresse||'',datum:kopf.datum||new Date().toISOString().slice(0,10),objektNr:kopf.objektNr||'',pruefer:kopf.pruefer||'Felix Beckmann'},
+      themen:themen, screen:'dashboard', nav:{}, unterschriften:{sachkundiger:null,kunde:null} }, hinweise:hinweise };
+  }
+
+  // ---------- UI-Verdrahtung -------------------------------------------------
+  function $(id){ return document.getElementById(id); }
+  function open(){ $('thOverlay').style.display='flex'; $('thText').focus(); }
+  function close(){ $('thOverlay').style.display='none'; }
+  window.addEventListener('DOMContentLoaded', function(){
+    $('thImportBtn').addEventListener('click', open);
+    $('thCancel').addEventListener('click', close);
+    // Import-Button NUR auf dem Startbildschirm zeigen (dort ist oben rechts frei),
+    // damit er in den Arbeitslisten nicht den Löschen-/Kopieren-Button verdeckt.
+    var istStart=function(){ return !!document.querySelector('input[oninput*="kopfdaten.kunde"]'); };
+    var syncBtn=function(){ var b=$('thImportBtn'); if(b) b.style.display=istStart()?'block':'none'; };
+    setInterval(syncBtn, 400); syncBtn();
+    $('thOverlay').addEventListener('click', function(e){ if(e.target===$('thOverlay')) close(); });
+    $('thGo').addEventListener('click', function(){
+      var text=$('thText').value;
+      if(!text.trim()){ alert('Bitte zuerst den THEMIS-Berichtstext einfügen.'); return; }
+      var kopf, fest, objekte, res;
+      try{
+        kopf=parseKopf(text); fest=parseThemisText(text); objekte=gruppiere(fest); res=baueState(kopf,objekte);
+      }catch(err){ alert('Der Text konnte nicht gelesen werden:\n'+(err&&err.message?err.message:err)); return; }
+      if(objekte.length===0){ alert('Es wurden keine Positionen (z. B. 1.1, 1.2 …) gefunden. Ist der komplette Berichtstext eingefügt?'); return; }
+      var themenListe=Object.keys(res.state.themen).map(function(g){ return '• '+g+': '+res.state.themen[g].einheiten.length+' Objekt(e)'; });
+      var msg='Erkannt:\n'+themenListe.join('\n')+'\n\nKunde: '+(res.state.kopfdaten.kunde||'–')+'\nObjekte gesamt: '+objekte.length;
+      if(res.hinweise.length) msg+='\n\nHinweise:\n'+res.hinweise.join('\n');
+      msg+='\n\nJetzt übernehmen? Die aktuelle Begehung wird ersetzt.';
+      if(!confirm(msg)) return;
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(res.state)); }
+      catch(e){ alert('Konnte nicht in den Speicher schreiben: '+(e&&e.message?e.message:e)); return; }
+      alert('Import übernommen. Die App wird neu geladen.');
+      location.reload();
+    });
+  });
+})();
+</script>
+<!-- ===== Ende THEMIS-Import ============================================== -->
+
 </body>
 </html>
