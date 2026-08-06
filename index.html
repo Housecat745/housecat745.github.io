@@ -1331,7 +1331,7 @@ function renderStart(){
     '<input type="text" value="'+escapeHtml(k.pruefer)+'" oninput="AppActions.setField(\'kopfdaten.pruefer\', this.value)">'+
   '</div>'+
   '<div class="actionbar">'+
-    '<button class="btn btn-primary" onclick="AppActions.goDashboard()">Weiter zur Themenübersicht →</button>'+
+    '<button class="btn btn-primary" onclick="AppActions.weiterVonStart()">Weiter zur Themenübersicht →</button>'+
   '</div>';
 }
 function renderDashboard(){
@@ -2304,6 +2304,8 @@ function buildZipBlob(pdfBlob, callback, fortschritt){
   naechstes();
 }
 window.AppActions = {
+  themisImport: function(res){ if(!res) return; state.kopfdaten=res.kopfdaten; state.themen=res.themen; state.screen='dashboard'; if(res.unterschriften) state.unterschriften=res.unterschriften; saveState(); render(); },
+  weiterVonStart: function(){ if(typeof window.__thOpenImport==='function' && confirm('THEMIS-Bericht konvertieren?\n\nOK = Konverter öffnen\nAbbrechen = ohne Import weiter zu FiSc')){ window.__thOpenImport(); } else { this.goDashboard(); } },
   setField: function(path, value){
     setPath(state, path, value);
     saveStateVerzoegert();
@@ -2795,13 +2797,12 @@ render();
   function open(){ $('thOverlay').style.display='flex'; $('thText').focus(); }
   function close(){ $('thOverlay').style.display='none'; }
   window.addEventListener('DOMContentLoaded', function(){
+    window.__thOpenImport = open;   // vom Zwischenschritt (AppActions.weiterVonStart) aufrufbar
     $('thImportBtn').addEventListener('click', open);
     $('thCancel').addEventListener('click', close);
-    // Import-Button NUR auf dem Startbildschirm zeigen (dort ist oben rechts frei),
-    // damit er in den Arbeitslisten nicht den Löschen-/Kopieren-Button verdeckt.
-    var istStart=function(){ return !!document.querySelector('input[oninput*="kopfdaten.kunde"]'); };
-    var syncBtn=function(){ var b=$('thImportBtn'); if(b) b.style.display=istStart()?'block':'none'; };
-    setInterval(syncBtn, 400); syncBtn();
+    // Fixierten Button dauerhaft ausblenden – der Import läuft jetzt über den
+    // Zwischenschritt nach den Auftragsdaten, nicht mehr über einen Overlay-Button.
+    var b=$('thImportBtn'); if(b) b.style.display='none';
     $('thOverlay').addEventListener('click', function(e){ if(e.target===$('thOverlay')) close(); });
     $('thGo').addEventListener('click', function(){
       var text=$('thText').value;
@@ -2817,21 +2818,14 @@ render();
       msg+='\n\nJetzt übernehmen? Die aktuelle Begehung wird ersetzt.';
       if(!confirm(msg)) return;
       try{
-        if(window.state && typeof window.render==='function'){
-          // Zustand DIREKT in der laufenden App setzen und neu zeichnen – KEIN reload.
-          // Ein reload würde den Autosave (pagehide/beforeunload) auslösen, der beim
-          // Entladen den alten, leeren Stand über den frischen Import schreibt.
-          window.state.kopfdaten      = res.state.kopfdaten;
-          window.state.themen         = res.state.themen;
-          window.state.screen         = 'dashboard';
-          window.state.unterschriften = res.state.unterschriften;
-          if(typeof window.saveState==='function') window.saveState();
-          window.render();
+        // Übernahme über AppActions (läuft IM App-Scope, direkter Zugriff auf
+        // state/saveState/render) – KEIN reload, sonst überschreibt der Autosave.
+        if(window.AppActions && typeof window.AppActions.themisImport==='function'){
+          window.AppActions.themisImport(res.state);
           close();
           alert('Import übernommen: '+objekte.length+' Objekt(e). Kopf und Prüfobjekte sind eingetragen.');
         } else {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(res.state));
-          location.reload();
+          alert('Die App-Schnittstelle (AppActions) wurde nicht gefunden. Bitte die Datei neu laden.');
         }
       }catch(e){
         alert('Import fehlgeschlagen: '+(e&&e.message?e.message:e));
